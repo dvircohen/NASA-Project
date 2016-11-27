@@ -37,5 +37,3 @@ class Asteroid(object):
 
     def set_color(self, color):
         self.color = color
-
-

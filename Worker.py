@@ -21,7 +21,7 @@ class Worker(object):
         data_per_day_list = [response["near_earth_objects"][i] for i in response["near_earth_objects"].keys()]
         asteroids_list = list(itertools.chain.from_iterable(data_per_day_list))
         nasa_asteroids_list = [self._make_asteroid_object(asteroid) for asteroid in asteroids_list]
-        dangerous_asteroids = [asteroid  for asteroid in nasa_asteroids_list if self.check_if_dangerous(asteroid)]
+        dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if self.check_if_dangerous(asteroid)]
         return dangerous_asteroids
 
     @staticmethod
@@ -39,7 +39,8 @@ class Worker(object):
         approach_date = asteroid["close_approach_data"][0]["close_approach_date"]  # str
         return Asteroid(hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date)
 
-    def check_if_dangerous(self, asteroid):
+    @staticmethod
+    def check_if_dangerous(asteroid):
         if asteroid.get_hazardous():
             if asteroid.get_velocity() < 10:
                 asteroid.set_color("Green")
@@ -54,7 +55,7 @@ class Worker(object):
         else:
             return False
 
-
+# FOR DEBUGGING
 start_date = "2016-11-19"
 end_date = "2016-11-26"
 api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
