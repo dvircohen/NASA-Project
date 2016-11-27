@@ -1,5 +1,6 @@
 class Asteroid(object):
 
+
     def __init__(self, hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date):
         self.hazardous = hazardous
         self.miss_distance = float(miss_distance)
@@ -8,6 +9,7 @@ class Asteroid(object):
         self.diameter_max = float(diameter_max)
         self.name = name
         self.approach_date = approach_date
+        self.color = "Black"
 
     def get_hazardous(self):
         return self.hazardous
@@ -29,3 +31,11 @@ class Asteroid(object):
 
     def get_approach_date(self):
         return self.approach_date
+
+    def get_color(self):
+        return self.color
+
+    def set_color(self, color):
+        self.color = color
+
+
