@@ -1,6 +1,8 @@
 import argparse
 import os
 
+import shutil
+
 import utils.clients
 
 
@@ -32,6 +34,7 @@ class Local(object):
         # run the task given in constructor
         # create the html file and finish
         self._ensure_manager_is_up()
+        self.make_zip()
         self._kill_manager()
 
     def _ensure_manager_is_up(self):
@@ -81,6 +84,10 @@ class Local(object):
         # tasks before killing it
         if self._terminate:
             response = self._manager.terminate()
+
+    def make_zip(self):
+        shutil.make_archive("full_code", "zip", self._project_path)
+        # TODO send to s3
 
 
 def _register_arguments(parser):
