@@ -21,14 +21,10 @@ class Local(object):
         :return:
         """
 
-        # iterate over all alive instances
-        for instance in self._ec2_client.instances.all():
-            for tag in instance.tags():
-                if tag == {'Rule': 'Manager'}:
-                    self._manager = instance
+        if not self._ec2_client.get_instance_with_tag({'Rule': 'Manager'}):
 
-        if self._manager is None:
-
+            # TODO: create manager here
+            pass
 
     def _upload_file_and_job(self):
         """
