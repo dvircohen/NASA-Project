@@ -1,7 +1,7 @@
 import itertools
 import requests
 
-from utils.Asteroid import Asteroid
+from utils.asteroid import Asteroid
 
 
 class Worker(object):
