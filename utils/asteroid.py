@@ -1,3 +1,6 @@
+import json
+
+
 class Asteroid(object):
 
 
@@ -38,9 +41,8 @@ class Asteroid(object):
     def set_color(self, color):
         self.color = color
 
-    def code(self):
-        # TODO make json
-        pass
+    def to_json(self):
+        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
     def decode(self):
         # TODO make json

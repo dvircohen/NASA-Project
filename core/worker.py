@@ -1,6 +1,9 @@
 import itertools
+
+import boto3
 import requests
 
+from utils import make_asteroid_from_json
 from utils.asteroid import Asteroid
 
 
@@ -78,4 +81,6 @@ end_date = "2016-11-26"
 api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
 worker = Worker()
 data = worker.get_list_of_asteroids(start_date, end_date)
+json1 = data[0].to_json()
+ast1 = make_asteroid_from_json(json1)
 pass

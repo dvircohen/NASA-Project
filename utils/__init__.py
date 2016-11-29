@@ -1,4 +1,7 @@
+import json
 import logging
+
+from utils.asteroid import Asteroid
 
 
 def set_logger(logger_name, logger_file=None):
@@ -24,5 +27,18 @@ def set_logger(logger_name, logger_file=None):
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
-
     return logger
+
+def make_asteroid_from_json(json_string):
+    json_string = json.loads(json_string)
+    hazardous = json_string["hazardous"]
+    miss_distance = json_string["miss_distance"]
+    velocity = json_string["velocity"]
+    diameter_min = json_string["diameter_min"]
+    diameter_max = json_string["diameter_max"]
+    name = json_string["name"]
+    approach_date = json_string["approach_date"]
+    color = json_string["color"]
+    ast = Asteroid(hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date)
+    ast.set_color(color)
+    return ast

@@ -26,6 +26,5 @@ class Sqs(object):
         return queue.receive_messages(MaxNumberOfMessages=number_of_messages,
                                       WaitTimeSeconds=timeout)
 
-    def send_message(self):
-        # TODO: finish this
-        pass
+    def send_message(self, queue, body, attributes):
+        queue.send_message(MessageBody=body, MessageAttributes=attributes)
