@@ -7,7 +7,7 @@ class Ec2(object):
 
     def __init__(self, region_name='us-east-1'):
         self._ec2 = boto3.resource('ec2', region_name=region_name)
-        self._logger = utils.set_logger('ec2_manager')
+        self._logger = utils.set_logger('ec2_client')
 
     def get_instance_with_tag(self, wanted_tag):
         """
