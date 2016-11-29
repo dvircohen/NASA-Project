@@ -1,6 +1,8 @@
 import argparse
 import os
+import logging
 
+import utils
 import utils.clients
 
 
@@ -9,6 +11,7 @@ class Local(object):
     def __init__(self, args):
         # TODO: zip code here
         self._args = args
+        self._logger = utils.set_logger('local')
         self._code = None
         self._input_file_local_path = args.input_file_name
         self._output_file_path = args.output_file_name
@@ -18,10 +21,15 @@ class Local(object):
         self._input_file_s3_path = None
         self._SQS = None
         self._ec2_client = utils.clients.Ec2()
+        self._s3_client = utils.clients.S3()
         self._manager = None
         self._manager_tag = {'Key': 'Role', 'Value': 'Manager'}
         self._project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..',))
         self._setup_script_path = os.path.join(self._project_path, 'setup_scripts/manager_setup.sh')
+        self._project_bucket_name = '673333208134-very-secret-do-not-enter'
+        self._project_bucket = None
+
+        self._logger.debug('Local initialized with args: {0}'.format(args))
 
     def run_task(self):
         """
@@ -31,6 +39,8 @@ class Local(object):
         # TODO: make sure manager is up
         # run the task given in constructor
         # create the html file and finish
+        # self._ensure_bucket_exist()
+        # self._upload_input_file(os.path.join(self._project_path, 'core/local.py'), 'local.py')
         self._ensure_manager_is_up()
         self._kill_manager()
 
@@ -40,22 +50,31 @@ class Local(object):
         :return:
         """
 
+        self._logger.debug('Ensuring manager is alive')
         manager = self._ec2_client.get_instance_with_tag(self._manager_tag)
+        print manager
         if manager:
 
             # There should be only one manager so the list should have only one element
+            self._logger.debug('Manager already alive')
             self._manager = manager[0]
         else:
 
             # No manager up, create a new one (with tag)
+            self._logger.debug('No manager up, creating manager')
             iam_instance_profile = {'Arn': 'arn:aws:iam::673333208134:instance-profile/manager'}
-            self._manager = self._ec2_client.create_instance(image_id='ami-b66ed3de',
-                                                             tags=[self._manager_tag],
-                                                             iam_instance_profile=iam_instance_profile,
-                                                             instance_type='t2.nano',
-                                                             min_count=1,
-                                                             max_count=1,
-                                                             user_data=self._setup_script_path)
+            created_instances = self._ec2_client.create_instance(image_id='ami-b66ed3de',
+                                                                 tags=[self._manager_tag],
+                                                                 iam_instance_profile=iam_instance_profile,
+                                                                 instance_type='t2.nano',
+                                                                 min_count=1,
+                                                                 max_count=1,
+                                                                 user_data=self._setup_script_path)
+
+            # We only asked for one instance so we take the first element
+            self._logger.debug('Manager created')
+            self._manager = created_instances[0]
+
 
     def _upload_file_and_job(self):
         """
@@ -72,6 +91,14 @@ class Local(object):
         :return:
         """
 
+    def _upload_input_file(self, file_path, file_name):
+        self._logger.debug('Local uploading file filename={0} file path={1}'.format(file_name, file_path))
+        self._s3_client.upload_file(self._project_bucket, file_path, file_name)
+
+    def _ensure_bucket_exist(self):
+        self._logger.debug('Local ensuring bucket exist bucket name={0}'.format(self._project_bucket_name))
+        self._project_bucket = self._s3_client.create_or_get_bucket(self._project_bucket_name)
+
     def _kill_manager(self):
         """
         Terminate the manager
@@ -80,6 +107,7 @@ class Local(object):
         # TODO: need to check the assagiment specefication, maybe we need to let the manager finish all it current
         # tasks before killing it
         if self._terminate:
+            self._logger.debug('Terminating manager')
             response = self._manager.terminate()
 
 

@@ -1,10 +1,13 @@
 import boto3
 
+import utils
+
 
 class Ec2(object):
 
     def __init__(self, region_name='us-east-1'):
         self._ec2 = boto3.resource('ec2', region_name=region_name)
+        self._logger = utils.set_logger('ec2_manager')
 
     def get_instance_with_tag(self, wanted_tag):
         """
@@ -12,7 +15,10 @@ class Ec2(object):
         :param wanted_tag: {key: value}
         :return: return a list of instances that has the wanted tags
         """
+
+        self._logger.debug('Searching instances with a given tag. tag={0}'.format(wanted_tag))
         instances = []
+        log_message = 'Not instances found'
 
         # iterate over all alive instances
         for instance in self._ec2.instances.all():
@@ -21,6 +27,9 @@ class Ec2(object):
                     if tag == wanted_tag:
                         instances.append(instance)
 
+        if instances:
+            log_message = 'Instances found'
+        self._logger.debug(log_message)
         return instances
 
     def create_instance(self,
@@ -33,6 +42,7 @@ class Ec2(object):
                         max_count=1):
 
         # Create the instances
+        self._logger.debug('Creating instances')
         instances = self._ec2.create_instances(ImageId=image_id,
                                                MinCount=min_count,
                                                MaxCount=max_count,
@@ -41,6 +51,8 @@ class Ec2(object):
                                                UserData=user_data)
 
         # Add tags to the instances
+        self._logger.debug('Instances created. Number of instances'.format(len(instances)))
+        self._logger.debug('Setting tags to instances')
         for instance in instances:
             instance.create_tags(Tags=tags)
 
