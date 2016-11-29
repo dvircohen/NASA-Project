@@ -5,27 +5,44 @@ import requests
 
 from utils import make_asteroid_from_json
 from utils.asteroid import Asteroid
+from utils.clients import Sqs
 
 
 class Worker(object):
     def __init__(self):
-        sqs = boto3.resource('sqs', region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
-                             aws_secret_access_key="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")
-        self.queue = sqs.get_queue_by_name(QueueName='worker_queue')
+        # sqs = boto3.resource('sqs', region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
+        #                      aws_secret_access_key="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")
+        # self.queue = sqs.get_queue_by_name(QueueName='worker_queue')
+
+        self.sqs = Sqs()
+        self.queue = sqs.get_queue("worker_queue")
         self.start_listening()
 
     def start_listening(self):
-        for message in queue.receive_messages():
+        """
+        get the messages from the queue and precces them
+        """
+        for message in self.sqs.get_messages(self.queue, 5, 5):
             if message.message_attributes is not None:
                 if message.message_attributes.get('type').get('StringValue') is "incoming":
-                    self.get_message(message)
+                    self.procces_message(message)
 
-    def get_message(self, message):
+    def procces_message(self, message):
+        """
+        get a message and returns the dangerous asteroids list to to queue
+        """
         # TODO get other parameter, and the local id
         msg_start_date = message.message_attributes.get('start_date').get('StringValue')
         msg_end_date = message.message_attributes.get('end_date').get('StringValue')
-        self.get_list_of_asteroids(msg_start_date, msg_end_date)
+        local_id = message.message_attributes.get('local_id').get('StringValue')
+        ast_list = self.get_list_of_asteroids(msg_start_date, msg_end_date)
         # TODO send back to the queue the astroid json and the local id
+        json_ast_list = [x.to_json() for x in ast_list]
+        self.send_asteroids(json_ast_list)
+
+    def send_asteroids(self, json_ast_list):
+        for ast in json_ast_list:
+            self.sqs.send_message(self.queue, "astroid", ast)
 
 
     def get_list_of_asteroids(self, start_date_str, end_date_str):
@@ -74,6 +91,8 @@ class Worker(object):
             return True
         else:
             return False
+
+
 
 # FOR DEBUGGING
 start_date = "2016-11-19"

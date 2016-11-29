@@ -3,7 +3,6 @@ import json
 
 class Asteroid(object):
 
-
     def __init__(self, hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date):
         self.hazardous = hazardous
         self.miss_distance = float(miss_distance)
