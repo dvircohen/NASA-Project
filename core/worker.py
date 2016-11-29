@@ -6,7 +6,24 @@ from utils.asteroid import Asteroid
 
 class Worker(object):
     def __init__(self):
-        pass
+        sqs = boto3.resource('sqs', region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
+                             aws_secret_access_key="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")
+        self.queue = sqs.get_queue_by_name(QueueName='worker_queue')
+        self.start_listening()
+
+    def start_listening(self):
+        for message in queue.receive_messages():
+            if message.message_attributes is not None:
+                if message.message_attributes.get('type').get('StringValue') is "incoming":
+                    self.get_message(message)
+
+    def get_message(self, message):
+        # TODO get other parameter, and the local id
+        msg_start_date = message.message_attributes.get('start_date').get('StringValue')
+        msg_end_date = message.message_attributes.get('end_date').get('StringValue')
+        self.get_list_of_asteroids(msg_start_date, msg_end_date)
+        # TODO send back to the queue the astroid json and the local id
+
 
     def get_list_of_asteroids(self, start_date_str, end_date_str):
         """

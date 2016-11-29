@@ -37,3 +37,11 @@ class Asteroid(object):
 
     def set_color(self, color):
         self.color = color
+
+    def code(self):
+        # TODO make json
+        pass
+
+    def decode(self):
+        # TODO make json
+        pass

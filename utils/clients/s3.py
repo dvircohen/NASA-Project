@@ -10,7 +10,7 @@ class S3(object):
         self._logger = utils.set_logger('s3_client')
 
     def create_or_get_bucket(self, name):
-        self._logger('Getting or creating bucket. bucket name{0}'.format(name))
+        self._logger.debug('Getting or creating bucket. bucket name: {0}'.format(name))
         return self._s3.create_bucket(Bucket=name)
 
     def upload_file(self, bucket, file_path, file_name):
@@ -22,12 +22,12 @@ class S3(object):
         :return: return (return_code, Exception/None)
         """
         try:
-            self._logger.debug('Uploading file. file name: {0} file path {1} bucket {2}'.format(file_name,
-                                                                                                file_path,
-                                                                                                bucket))
+            self._logger.debug('Uploading file. file name: {0}, file path: {1}, bucket: {2}'.format(file_name,
+                                                                                                    file_path,
+                                                                                                    bucket))
             bucket.upload_file(file_path, file_name)
             self._logger.debug('File uploaded successfully')
         except Exception as e:
-            self._logger.debug('Error while uploading file')
-            return 1, e
+            self._logger.error('Error while uploading file. error: {0}'.format(e.message))
+            return 1
         return 0, None

@@ -1,6 +1,7 @@
 import argparse
 import os
-import logging
+
+import shutil
 
 import utils
 import utils.clients
@@ -39,8 +40,9 @@ class Local(object):
         # TODO: make sure manager is up
         # run the task given in constructor
         # create the html file and finish
-        # self._ensure_bucket_exist()
-        # self._upload_input_file(os.path.join(self._project_path, 'core/local.py'), 'local.py')
+        self._ensure_bucket_exist()
+        self._upload_input_file(os.path.join(self._project_path, 'core/local.py'), 'local.py')
+        self._zip_and_upload_code()
         self._ensure_manager_is_up()
         self._kill_manager()
 
@@ -52,7 +54,6 @@ class Local(object):
 
         self._logger.debug('Ensuring manager is alive')
         manager = self._ec2_client.get_instance_with_tag(self._manager_tag)
-        print manager
         if manager:
 
             # There should be only one manager so the list should have only one element
@@ -92,11 +93,11 @@ class Local(object):
         """
 
     def _upload_input_file(self, file_path, file_name):
-        self._logger.debug('Local uploading file filename={0} file path={1}'.format(file_name, file_path))
+        self._logger.debug('Uploading file. filename: {0}, file path: {1}'.format(file_name, file_path))
         self._s3_client.upload_file(self._project_bucket, file_path, file_name)
 
     def _ensure_bucket_exist(self):
-        self._logger.debug('Local ensuring bucket exist bucket name={0}'.format(self._project_bucket_name))
+        self._logger.debug('Ensuring bucket exist. bucket name: {0}'.format(self._project_bucket_name))
         self._project_bucket = self._s3_client.create_or_get_bucket(self._project_bucket_name)
 
     def _kill_manager(self):
@@ -109,6 +110,19 @@ class Local(object):
         if self._terminate:
             self._logger.debug('Terminating manager')
             response = self._manager.terminate()
+
+    def _zip_and_upload_code(self):
+        self._logger.debug('Zipping project code in prevention to send')
+        archive_dir = os.path.abspath(os.path.join(self._project_path, '..'))
+        place = os.path.join(self._project_path, 'full_code')
+        shutil.make_archive(base_name=place,
+                            format='zip',
+                            root_dir=archive_dir,
+                            base_dir='NASA-Project')
+        self._logger.debug('Zipping done')
+        self._s3_client.upload_file(self._project_bucket,
+                                    os.path.join(self._project_path, 'full_code.zip'),
+                                    'full_code.zip')
 
 
 def _register_arguments(parser):

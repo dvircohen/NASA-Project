@@ -16,7 +16,7 @@ class Ec2(object):
         :return: return a list of instances that has the wanted tags
         """
 
-        self._logger.debug('Searching instances with a given tag. tag={0}'.format(wanted_tag))
+        self._logger.debug('Searching instances with a given tag. tag: {0}'.format(wanted_tag))
         instances = []
         log_message = 'Not instances found'
 
@@ -51,7 +51,7 @@ class Ec2(object):
                                                UserData=user_data)
 
         # Add tags to the instances
-        self._logger.debug('Instances created. Number of instances'.format(len(instances)))
+        self._logger.debug('Instances created. Number of instances: {0}'.format(len(instances)))
         self._logger.debug('Setting tags to instances')
         for instance in instances:
             instance.create_tags(Tags=tags)
