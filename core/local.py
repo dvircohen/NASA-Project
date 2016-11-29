@@ -1,5 +1,6 @@
 import argparse
 import os
+import uuid
 
 import shutil
 
@@ -20,15 +21,19 @@ class Local(object):
         self._number_periods_per_worker = args.n
         self._terminate = args.terminate
         self._input_file_s3_path = None
-        self._SQS = None
+        self._sqs_client = utils.clients.Sqs()
         self._ec2_client = utils.clients.Ec2()
         self._s3_client = utils.clients.S3()
         self._manager = None
         self._manager_tag = {'Key': 'Role', 'Value': 'Manager'}
         self._project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..',))
         self._setup_script_path = os.path.join(self._project_path, 'setup_scripts/manager_setup.sh')
-        self._project_bucket_name = '673333208134-very-secret-do-not-enter'
+        self._project_bucket_name = utils.Names.project_bucket_name
         self._project_bucket = None
+        self._queue_to_manager = None
+        self._queue_from_manager = None
+        self._uuid = str(uuid.uuid4())
+        self._queue_from_manager_name = utils.Names.manager_to_local_queue + '_' + self._uuid
 
         self._logger.debug('Local initialized with args: {0}'.format(args))
 
@@ -40,9 +45,9 @@ class Local(object):
         # TODO: make sure manager is up
         # run the task given in constructor
         # create the html file and finish
+        self._ensure_sqs_to_manager_exist()
         self._ensure_bucket_exist()
-        self._upload_input_file(os.path.join(self._project_path, 'core/local.py'), 'local.py')
-        self._zip_and_upload_code()
+        self._upload_files_and_job()
         self._ensure_manager_is_up()
         self._kill_manager()
 
@@ -63,7 +68,7 @@ class Local(object):
 
             # No manager up, create a new one (with tag)
             self._logger.debug('No manager up, creating manager')
-            iam_instance_profile = {'Arn': 'arn:aws:iam::673333208134:instance-profile/manager'}
+            iam_instance_profile = {'Arn': utils.Names.arn}
             created_instances = self._ec2_client.create_instance(image_id='ami-b66ed3de',
                                                                  tags=[self._manager_tag],
                                                                  iam_instance_profile=iam_instance_profile,
@@ -76,13 +81,25 @@ class Local(object):
             self._logger.debug('Manager created')
             self._manager = created_instances[0]
 
+    def _ensure_sqs_to_manager_exist(self):
+        self._queue_to_manager = self._sqs_client.get_queue(self._queue_from_manager_name)
+        if self._queue_from_manager is None:
+            self._queue_to_manager = self._sqs_client.create_queue(self._queue_from_manager_name)
 
-    def _upload_file_and_job(self):
+        self._queue_to_manager = self._sqs_client.create_queue(utils.Names.manager_to_local_queue)
+
+    def _upload_files_and_job(self):
         """
-        Upload the input file to S3
+        Upload the input and code file to S3
         Send a message to the SQS with the S3 path
         :return:
         """
+        self._logger.debug('Uploading files')
+        self._upload_input_file(os.path.join(self._project_path, 'core/local.py'), 'local.py')
+        self._zip_and_upload_code()
+
+        self._logger.debug('Sending job to manager via sqs')
+
 
     def _on_summery_file_ready(self, summery_file_s3_path):
         """

@@ -4,6 +4,13 @@ import logging
 from utils.asteroid import Asteroid
 
 
+class Names(object):
+    local_to_manager_queue = 'tasks'
+    manager_to_local_queue = 'done_tasks'
+    arn = 'arn:aws:iam::673333208134:instance-profile/manager'
+    project_bucket_name = '673333208134-very-secret-do-not-enter'
+
+
 def set_logger(logger_name, logger_file=None):
 
     # create logger
@@ -29,6 +36,7 @@ def set_logger(logger_name, logger_file=None):
         logger.addHandler(file_handler)
     return logger
 
+
 def make_asteroid_from_json(json_string):
     json_string = json.loads(json_string)
     hazardous = json_string["hazardous"]
@@ -42,3 +50,6 @@ def make_asteroid_from_json(json_string):
     ast = Asteroid(hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date)
     ast.set_color(color)
     return ast
+
+
+
