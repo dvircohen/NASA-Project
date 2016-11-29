@@ -15,14 +15,15 @@ class Worker(object):
         # self.queue = sqs.get_queue_by_name(QueueName='worker_queue')
 
         self.sqs = Sqs()
-        self.queue = sqs.get_queue("worker_queue")
+        self.jobs_queue = sqs.get_queue("jobs")
+        self.asteroids_queue = sqs.get_queue("asteroids")
         self.start_listening()
 
     def start_listening(self):
         """
         get the messages from the queue and precces them
         """
-        for message in self.sqs.get_messages(self.queue, 5, 5):
+        for message in self.sqs.get_messages(self.jobs_queue, 5, 5):
             if message.message_attributes is not None:
                 if message.message_attributes.get('type').get('StringValue') is "incoming":
                     self.procces_message(message)
@@ -42,7 +43,7 @@ class Worker(object):
 
     def send_asteroids(self, json_ast_list):
         for ast in json_ast_list:
-            self.sqs.send_message(self.queue, "astroid", ast)
+            self.sqs.send_message(self.asteroids_queue, "astroid", ast)
 
 
     def get_list_of_asteroids(self, start_date_str, end_date_str):
