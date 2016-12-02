@@ -2,6 +2,7 @@ import json
 import logging
 
 from utils.asteroid import Asteroid
+from utils.task import Task
 
 
 class Names(object):
@@ -50,6 +51,5 @@ def make_asteroid_from_json(json_string):
     ast = Asteroid(hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date)
     ast.set_color(color)
     return ast
-
 
 

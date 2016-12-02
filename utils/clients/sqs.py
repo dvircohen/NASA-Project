@@ -32,5 +32,13 @@ class Sqs(object):
         return queue.receive_messages(MaxNumberOfMessages=number_of_messages,
                                       WaitTimeSeconds=timeout)
 
-    def send_message(self, queue, body, attributes):
-        queue.send_message(MessageBody=body, MessageAttributes=attributes)
+    def send_message(self, queue, body, attributes=None):
+        self._logger.debug('Sending message. body: {0}, queue: {1}, attributes" {2} '.format(body, queue, attributes))
+        try:
+            if attributes is None:
+                queue.send_message(MessageBody=body)
+            else:
+                queue.send_message(MessageBody=body, MessageAttributes=attributes)
+        except Exception as e:
+            self._logger.error('Error sending message. Error: {0}'.format(e.message))
+        self._logger.debug('Message sent successfully')

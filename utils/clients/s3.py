@@ -29,5 +29,21 @@ class S3(object):
             self._logger.debug('File uploaded successfully')
         except Exception as e:
             self._logger.error('Error while uploading file. error: {0}'.format(e.message))
-            return 1
-        return 0, None
+            raise e
+
+    def download_file(self, bucket, key, local_filename):
+        """
+        download a file
+        :param bucket: The bucket to download from
+        :param key: The name of the file in the bucket
+        :param local_filename: local path to save the downloaded file
+        """
+        try:
+            self._logger.debug('Downloading file. key: {0}, local_filename {1}, bucket {2}'.format(key,
+                                                                                                   local_filename,
+                                                                                                   bucket))
+            bucket.download_file(key, local_filename)
+            self._logger.debug('File downloaded successfully')
+        except Exception as e:
+            self._logger.error('Error while downloading file. error: {0}'.format(e.message))
+            raise e

@@ -1,6 +1,7 @@
 import argparse
 import os
 import uuid
+import json
 
 import shutil
 
@@ -34,6 +35,8 @@ class Local(object):
         self._queue_from_manager = None
         self._uuid = str(uuid.uuid4())
         self._queue_from_manager_name = utils.Names.manager_to_local_queue + '_' + self._uuid
+        self._input_file_s3_name = 'input_file_{0}'.format(self._uuid)
+        self._files_folder = os.path.join(self._project_path, 'files')
 
         self._logger.debug('Local initialized with args: {0}'.format(args))
 
@@ -45,7 +48,7 @@ class Local(object):
         # TODO: make sure manager is up
         # run the task given in constructor
         # create the html file and finish
-        self._ensure_sqs_to_manager_exist()
+        self._ensure_sqs_queues_exist()
         self._ensure_bucket_exist()
         self._upload_files_and_job()
         self._ensure_manager_is_up()
@@ -81,12 +84,12 @@ class Local(object):
             self._logger.debug('Manager created')
             self._manager = created_instances[0]
 
-    def _ensure_sqs_to_manager_exist(self):
-        self._queue_to_manager = self._sqs_client.get_queue(self._queue_from_manager_name)
-        if self._queue_from_manager is None:
-            self._queue_to_manager = self._sqs_client.create_queue(self._queue_from_manager_name)
+    def _ensure_sqs_queues_exist(self):
+        self._queue_to_manager = self._sqs_client.get_queue(utils.Names.local_to_manager_queue)
+        if self._queue_to_manager is None:
+            self._queue_to_manager = self._sqs_client.create_queue(utils.Names.local_to_manager_queue)
 
-        self._queue_to_manager = self._sqs_client.create_queue(utils.Names.manager_to_local_queue)
+        self._queue_from_manager = self._sqs_client.create_queue(self._queue_from_manager_name)
 
     def _upload_files_and_job(self):
         """
@@ -95,23 +98,49 @@ class Local(object):
         :return:
         """
         self._logger.debug('Uploading files')
-        self._upload_input_file(os.path.join(self._project_path, 'core/local.py'), 'local.py')
+        self._upload_input_file()
         self._zip_and_upload_code()
 
         self._logger.debug('Sending job to manager via sqs')
+        body = {'local_uid': self._uuid, 'input_file_s3_name': self._input_file_s3_name}
+        body = json.dumps(body)
+        self._sqs_client.send_message(queue=self._queue_to_manager, body=body)
 
-
-    def _on_summery_file_ready(self, summery_file_s3_path):
+    def _wait_on_summery_file_and_proccess(self):
         """
+        Wait for summery file from manager (wait on sqs message)
         Downloads summery file from s3
         Create summery html file and save it in place
         :param summery_file_s3_path:
-        :return:
         """
+        self._logger('Waiting on message from manager')
+        messages = None
+        while messages is None:
+            messages = self._sqs_client.get_messages(queue=self._queue_from_manager,
+                                                     timeout=60 * 60,
+                                                     number_of_messages=1)
 
-    def _upload_input_file(self, file_path, file_name):
-        self._logger.debug('Uploading file. filename: {0}, file path: {1}'.format(file_name, file_path))
-        self._s3_client.upload_file(self._project_bucket, file_path, file_name)
+        self._logger('Message received from manager')
+        message_body = messages[0].body
+        summery_message = json.loads(message_body)
+        summery_file_name = summery_message['summery_file_name']
+
+        self._logger('Downloading summery file from S3')
+        local_file_path = os.path.join(self._files_folder, 'summery_file.json')
+        self._s3_client.download_file(self._project_bucket,
+                                      summery_file_name,
+                                      local_file_path)
+
+        self._logger('Summery file downloaded. file_path: {0}'.format(local_file_path))
+
+        # TODO: create html file here
+
+    def _upload_input_file(self):
+        self._logger.debug('Uploading file. filename: {0}, file path: {1}'.format(self._input_file_s3_name,
+                                                                                  self._input_file_local_path))
+        self._s3_client.upload_file(self._project_bucket,
+                                    self._input_file_local_path,
+                                    self._input_file_s3_name)
 
     def _ensure_bucket_exist(self):
         self._logger.debug('Ensuring bucket exist. bucket name: {0}'.format(self._project_bucket_name))
