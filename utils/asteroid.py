@@ -12,6 +12,7 @@ class Asteroid(object):
         self.name = name
         self.approach_date = approach_date
         self.color = "Black"
+        self.local_id = None
 
     def get_hazardous(self):
         return self.hazardous
@@ -39,6 +40,9 @@ class Asteroid(object):
 
     def set_color(self, color):
         self.color = color
+
+    def set_local_id(self, local_id):
+        self.local_id = local_id
 
     def to_json(self):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)

@@ -1,52 +1,65 @@
 import itertools
-
-import boto3
+import json
 import requests
 
 from utils import make_asteroid_from_json
 from utils.asteroid import Asteroid
-from utils.clients import Sqs
+from utils.clients import *
 
 
 class Worker(object):
     def __init__(self):
-        # sqs = boto3.resource('sqs', region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
+        # _sqs_client = boto3.resource('_sqs_client', region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
         #                      aws_secret_access_key="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")
-        # self.queue = sqs.get_queue_by_name(QueueName='worker_queue')
-
-        self.sqs = Sqs()
-        self.jobs_queue = sqs.get_queue("jobs")
-        self.asteroids_queue = sqs.get_queue("asteroids")
+        # self.queue = _sqs_client.get_queue_by_name(QueueName='worker_queue')
+        self._logger = utils.set_logger('worker')
+        self._sqs_client = Sqs()
+        self.jobs_queue = self._sqs_client.get_queue("jobs")
+        self.death_queue = self._sqs_client.get_queue("deaths")
+        self.asteroids_queue = self._sqs_client.get_queue("asteroids")
         self.start_listening()
 
     def start_listening(self):
         """
         get the messages from the queue and precces them
         """
-        for message in self.sqs.get_messages(self.jobs_queue, 5, 5):
-            if message.message_attributes is not None:
-                if message.message_attributes.get('type').get('StringValue') is "incoming":
-                    self.procces_message(message)
+        # TODO find a way to kill a worker
+        while True:
+            self._check_if_kill_yourself()
+            messages = self._sqs_client.get_messages(queue=self.jobs_queue,
+                                                     timeout=60 * 60,
+                                                     number_of_messages=1)
+            self._logger('Message received from manager')
+            message_body = messages[0].body
+            summery_message = json.loads(message_body)
+            # process the messages and return a json str
+            json_ast_list = self.process_message(summery_message)
+            # send it back to the manager
+            self.send_asteroids(json_ast_list)
 
-    def procces_message(self, message):
+    def process_message(self, message):
         """
         get a message and returns the dangerous asteroids list to to queue
         """
-        # TODO get other parameter, and the local id
         msg_start_date = message.message_attributes.get('start_date').get('StringValue')
         msg_end_date = message.message_attributes.get('end_date').get('StringValue')
         local_id = message.message_attributes.get('local_id').get('StringValue')
-        ast_list = self.get_list_of_asteroids(msg_start_date, msg_end_date)
-        # TODO send back to the queue the astroid json and the local id
+        ast_list = self.get_list_of_asteroids(msg_start_date, msg_end_date, local_id)
+
+        # decode to json
         json_ast_list = [x.to_json() for x in ast_list]
-        self.send_asteroids(json_ast_list)
+        return json_ast_list
 
     def send_asteroids(self, json_ast_list):
+        """
+        send the astroids to the manager
+        """
+        self._ensure_sqs_queues_exist()
+        # go over the asteroids and send them
         for ast in json_ast_list:
-            self.sqs.send_message(self.asteroids_queue, "astroid", ast)
+            self._sqs_client.send_message(queue=self.asteroids_queue, body=ast)
 
-
-    def get_list_of_asteroids(self, start_date_str, end_date_str):
+    def get_list_of_asteroids(self, start_date_str, end_date_str, local_id):
         """
         get the dates and return an asteroids object from NASA
         :return: json objects representing the asteroids list
@@ -58,8 +71,12 @@ class Worker(object):
                                                                                                 nasa_api_key)).json()
         data_per_day_list = [response["near_earth_objects"][i] for i in response["near_earth_objects"].keys()]
         asteroids_list = list(itertools.chain.from_iterable(data_per_day_list))
+        # make list of asteroid object
         nasa_asteroids_list = [self._make_asteroid_object(asteroid) for asteroid in asteroids_list]
+        # remove the none dangerous and add the color
         dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if self.check_if_dangerous(asteroid)]
+        # add the local id
+        dangerous_asteroids = [asteroid.set_local_id(local_id) for asteroid in dangerous_asteroids]
         return dangerous_asteroids
 
     @staticmethod
@@ -93,14 +110,35 @@ class Worker(object):
         else:
             return False
 
+    def _ensure_sqs_queues_exist(self):
+        self.jobs_queue = self._sqs_client.get_queue(utils.Names.worker_to_manager_queue)
+        if self.jobs_queue is None:
+            self.jobs_queue = self._sqs_client.create_queue(utils.Names.worker_to_manager_queue)
+
+    def _check_if_kill_yourself(self):
+        messages = self._sqs_client.get_messages(queue=self.death_queue,
+                                                 timeout=60 * 60,
+                                                 number_of_messages=1)
+        self._logger('Message received from the death queue')
+        message_body = messages[0].body
+        summery_message = json.loads(message_body)
+        to_kill = summery_message['to_kill']
+        if to_kill:
+            # message received saying you need to kill yourself :(
+            self.kil_yourself()
+
+    def kil_yourself(self):
+        self._logger('Goodbye cruel world  :(')
+        # TODO suicide
 
 
 # FOR DEBUGGING
 start_date = "2016-11-19"
 end_date = "2016-11-26"
 api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
+local_id = "worker1"
 worker = Worker()
-data = worker.get_list_of_asteroids(start_date, end_date)
+data = worker.get_list_of_asteroids(start_date, end_date, local_id)
 json1 = data[0].to_json()
 ast1 = make_asteroid_from_json(json1)
 pass

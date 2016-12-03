@@ -8,6 +8,8 @@ from utils.task import Task
 class Names(object):
     local_to_manager_queue = 'tasks'
     manager_to_local_queue = 'done_tasks'
+    worker_to_manager_queue = "asteroids"
+    workers_death_queue = "deaths"
     arn = 'arn:aws:iam::673333208134:instance-profile/manager'
     project_bucket_name = '673333208134-very-secret-do-not-enter'
 
