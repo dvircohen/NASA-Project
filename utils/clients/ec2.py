@@ -48,7 +48,9 @@ class Ec2(object):
                                                MaxCount=max_count,
                                                InstanceType=instance_type,
                                                IamInstanceProfile=iam_instance_profile,
-                                               UserData=user_data)
+                                               UserData=user_data,
+                                               KeyName="super_secret_connection"
+                                               )
 
         # Add tags to the instances
         self._logger.debug('Instances created. Number of instances: {0}'.format(len(instances)))
