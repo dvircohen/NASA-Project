@@ -7,6 +7,7 @@ import shutil
 
 import utils
 import utils.clients
+import messages
 
 
 class Local(object):
@@ -48,11 +49,11 @@ class Local(object):
         # TODO: make sure manager is up
         # run the task given in constructor
         # create the html file and finish
-        self._ensure_sqs_queues_exist()
+        # self._ensure_sqs_queues_exist()
         self._ensure_bucket_exist()
         self._upload_files_and_job()
-        self._ensure_manager_is_up()
-        self._kill_manager()
+        # self._ensure_manager_is_up()
+        # self._kill_manager()
 
     def _ensure_manager_is_up(self):
         """
@@ -102,8 +103,8 @@ class Local(object):
         self._zip_and_upload_code()
 
         self._logger.debug('Sending job to manager via sqs')
-        body = {'local_uid': self._uuid, 'input_file_s3_name': self._input_file_s3_name}
-        body = json.dumps(body)
+        task_message = messages.Task(self._uuid, self._input_file_s3_name)
+        body = messages.Task.encode(task_message)
         self._sqs_client.send_message(queue=self._queue_to_manager, body=body)
 
     def _wait_on_summery_file_and_proccess(self):
@@ -114,14 +115,14 @@ class Local(object):
         :param summery_file_s3_path:
         """
         self._logger('Waiting on message from manager')
-        messages = None
-        while messages is None:
-            messages = self._sqs_client.get_messages(queue=self._queue_from_manager,
-                                                     timeout=60 * 60,
-                                                     number_of_messages=1)
+        manager_messages = None
+        while manager_messages is None:
+            manager_messages = self._sqs_client.get_messages(queue=self._queue_from_manager,
+                                                             timeout=60 * 60,
+                                                             number_of_messages=1)
 
         self._logger('Message received from manager')
-        message_body = messages[0].body
+        message_body = manager_messages[0].body
         summery_message = json.loads(message_body)
         summery_file_name = summery_message['summery_file_name']
 
@@ -164,7 +165,7 @@ class Local(object):
         shutil.make_archive(base_name=place,
                             format='zip',
                             root_dir=archive_dir,
-                            base_dir='NASA-Project')
+                            base_dir='NASA_Project')
         self._logger.debug('Zipping done')
         self._s3_client.upload_file(self._project_bucket,
                                     os.path.join(self._project_path, 'full_code.zip'),

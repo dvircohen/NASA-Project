@@ -2,7 +2,6 @@ import json
 import logging
 
 from utils.asteroid import Asteroid
-from utils.task import Task
 
 
 class Names(object):
@@ -12,6 +11,8 @@ class Names(object):
     workers_death_queue = "deaths"
     arn = 'arn:aws:iam::673333208134:instance-profile/manager'
     project_bucket_name = '673333208134-very-secret-do-not-enter'
+    manager_to_workers_queue = 'jobs'
+    code_file = 'full_code.zip'
 
 
 def set_logger(logger_name, logger_file=None):

@@ -10,10 +10,12 @@ class Sqs(object):
 
     def get_queue(self, queue_name):
         queue = None
+        self._logger.debug('Getting queue. queue name: {0}'.format(queue_name))
         try:
             queue = self._sqs.get_queue_by_name(QueueName=queue_name)
         except Exception as e:
             self._logger.debug('Queue does not exist. queue_name: {0}'.format(queue_name))
+            raise e
         return queue
 
     def create_queue(self, queue_name, visibility_timeout=30 * 60):
@@ -22,8 +24,17 @@ class Sqs(object):
         :param visibility_timeout: number of seconds for a message to be in in-filght mode.
         :return: queue object
         """
+        self._logger.debug('Creating queue. queue_name: {0}, visibility_timeout: {1}'.format(queue_name,
+                                                                                             visibility_timeout))
         return self._sqs.create_queue(QueueName=queue_name,
                                       Attributes={'VisibilityTimeout': str(visibility_timeout)})
+
+    def get_or_create_queue(self, queue_name):
+        try:
+            queue = self.get_queue(queue_name)
+        except:
+            queue = self.create_queue(queue_name)
+        return queue
 
     def delete_quque(self, queue):
         queue.delete()
