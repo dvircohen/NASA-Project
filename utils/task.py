@@ -1,28 +1,13 @@
-import json
-
+import datetime
 
 class Task(object):
-    """
-    The Task object is the object that is passed from the local to the manager
-    """
-    def __init__(self, input_file_s3_path, local_uuid):
-        self.input_file_s3_path = input_file_s3_path
-        self.local_uuid = local_uuid
+    def __init__(self, uuid, start_time, end_time, speed_threshold, diameter_threshold, miss_threshold):
+        self._uuid = uuid
+        self._speed_threshold = speed_threshold
+        self._diameter_threshold = diameter_threshold
+        self._miss_threshold = miss_threshold
 
-    @staticmethod
-    def encode(task):
-        if isinstance(task, Task):
-            return json.dumps(task.__dict__)
+        delta = end_time - start_time
 
-        # If the instance is not of type Task raise
-        raise TypeError('Expected object of type Task, got object of type {0}'.format(task.__class__.__name__))
-
-    @staticmethod
-    def decode(task):
-        try:
-            task = json.loads(task)
-
-            # unpacking dict as kargs
-            return Task(**task)
-        except Exception as e:
-            raise TypeError('Error parsing the json')
+        for i in range(delta.days + 1):
+            print start_time + datetime.td(days=i)
