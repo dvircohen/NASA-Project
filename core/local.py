@@ -29,7 +29,7 @@ class Local(object):
         self._manager = None
         self._manager_tag = {'Key': 'Role', 'Value': 'Manager'}
         self._project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..',))
-        self._setup_script_path = os.path.join(self._project_path, 'setup_scripts/manager_setup.sh')
+        self._setup_script_path = os.path.join(self._project_path, 'setup_scripts\manager_setup.sh')
         self._project_bucket_name = utils.Names.project_bucket_name
         self._project_bucket = None
         self._queue_to_manager = None
@@ -72,6 +72,8 @@ class Local(object):
 
             # No manager up, create a new one (with tag)
             self._logger.debug('No manager up, creating manager')
+            with open(self._setup_script_path, 'r') as myfile:
+                user_data = myfile.read()
             iam_instance_profile = {'Arn': utils.Names.arn}
             created_instances = self._ec2_client.create_instance(image_id='ami-b66ed3de',
                                                                  tags=[self._manager_tag],
@@ -79,7 +81,7 @@ class Local(object):
                                                                  instance_type='t2.nano',
                                                                  min_count=1,
                                                                  max_count=1,
-                                                                 user_data=self._setup_script_path)
+                                                                 user_data=user_data)
 
             # We only asked for one instance so we take the first element
             self._logger.debug('Manager created')
