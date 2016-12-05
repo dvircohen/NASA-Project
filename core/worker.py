@@ -16,11 +16,11 @@ class Worker(object):
         #                      aws_secret_access_key="9P4ZwRqIQxWFeyNy8AR5X2cjxxBgo8ZmXtJKmcnc")
         # self.queue = _sqs_client.get_queue_by_name(QueueName='worker_queue')
         self._logger = utils.set_logger('worker')
-        # self._sqs_client = Sqs()
-        # self.jobs_queue = self._sqs_client.get_queue("jobs")
-        # self.death_queue = self._sqs_client.get_queue("deaths")
-        # self.asteroids_queue = self._sqs_client.get_queue("asteroids")
-        # self.start_listening()
+        self._sqs_client = Sqs()
+        self.jobs_queue = self._sqs_client.get_queue("jobs")
+        self.death_queue = self._sqs_client.get_queue("deaths")
+        self.asteroids_queue = self._sqs_client.get_queue("asteroids")
+        self.start_listening()
 
     def start_listening(self):
         """
@@ -151,5 +151,5 @@ end = datetime.datetime.strptime("2016-11-19", '%Y-%m-%d')
 a = Task(None, start, end, None, None, None)
 a.add_asteroid_list(data, start)
 json1 = a.make_json()
-ast1 = make_asteroid_from_json(json1)
+# ast1 = make_asteroid_from_json(json1)
 pass

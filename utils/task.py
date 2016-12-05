@@ -11,14 +11,15 @@ class Task(object):
         self.days = {}
         delta = end_time - start_time
         for i in range(delta.days + 1):
-            self.days[start_time + datetime.timedelta(days=i)] = None
+            self.days[(start_time + datetime.timedelta(days=i)).strftime('%y-%m-%d')] = None
         pass
 
     def add_asteroid_list(self, asteroid_list, date):
-        self.days[date] = asteroid_list
+        self.days[date.strftime('%y-%m-%d')] = asteroid_list
 
     def is_done(self):
         return all(day is not None for day in self.days.values())
 
     def make_json(self):
-        json.dumps(self.days)
+        # json.dumps(self.days)
+        return json.dumps(self.days, default=lambda o: o.__dict__, sort_keys=True, indent=4)
