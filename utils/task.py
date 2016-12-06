@@ -1,4 +1,6 @@
 import datetime
+import json
+
 
 
 class Task(object):
@@ -7,8 +9,18 @@ class Task(object):
         self._speed_threshold = speed_threshold
         self._diameter_threshold = diameter_threshold
         self._miss_threshold = miss_threshold
-
+        self.days = {}
         delta = end_time - start_time
-
         for i in range(delta.days + 1):
-            print start_time + datetime.td(days=i)
+            self.days[(start_time + datetime.timedelta(days=i)).strftime('%y-%m-%d')] = None
+        pass
+
+    def add_asteroid_list(self, asteroid_list, date):
+        self.days[date.strftime('%y-%m-%d')] = asteroid_list
+
+    def is_done(self):
+        return all(day is not None for day in self.days.values())
+
+    def make_json(self):
+        # json.dumps(self.days)
+        return json.dumps(self.days, default=lambda o: o.__dict__, sort_keys=True, indent=4)

@@ -1,10 +1,13 @@
 import itertools
 import json
+
+import datetime
 import requests
 
 from utils import make_asteroid_from_json
 from utils.asteroid import Asteroid
 from utils.clients import *
+from utils.task import Task
 
 
 class Worker(object):
@@ -76,7 +79,7 @@ class Worker(object):
         # remove the none dangerous and add the color
         dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if self.check_if_dangerous(asteroid)]
         # add the local id
-        dangerous_asteroids = [asteroid.set_local_id(local_id) for asteroid in dangerous_asteroids]
+        # dangerous_asteroids = [asteroid.set_local_id(local_id) for asteroid in dangerous_asteroids]
         return dangerous_asteroids
 
     @staticmethod
@@ -140,5 +143,13 @@ local_id = "worker1"
 worker = Worker()
 data = worker.get_list_of_asteroids(start_date, end_date, local_id)
 json1 = data[0].to_json()
-ast1 = make_asteroid_from_json(json1)
+
+
+start = datetime.datetime.strptime("2016-11-12", '%Y-%m-%d')
+end = datetime.datetime.strptime("2016-11-19", '%Y-%m-%d')
+
+a = Task(None, start, end, None, None, None)
+a.add_asteroid_list(data, start)
+json1 = a.make_json()
+# ast1 = make_asteroid_from_json(json1)
 pass

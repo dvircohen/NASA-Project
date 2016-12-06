@@ -50,3 +50,4 @@ class Asteroid(object):
     def decode(self):
         # TODO make json
         pass
+
