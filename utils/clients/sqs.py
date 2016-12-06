@@ -52,4 +52,5 @@ class Sqs(object):
                 queue.send_message(MessageBody=body, MessageAttributes=attributes)
         except Exception as e:
             self._logger.error('Error sending message. Error: {0}'.format(e.message))
+            raise e
         self._logger.debug('Message sent successfully')

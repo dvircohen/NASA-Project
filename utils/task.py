@@ -1,5 +1,6 @@
 import datetime
 
+
 class Task(object):
     def __init__(self, uuid, start_time, end_time, speed_threshold, diameter_threshold, miss_threshold):
         self._uuid = uuid

@@ -49,7 +49,7 @@ class Local(object):
         # TODO: make sure manager is up
         # run the task given in constructor
         # create the html file and finish
-        # self._ensure_sqs_queues_exist()
+        self._ensure_sqs_queues_exist()
         self._ensure_bucket_exist()
         self._upload_files_and_job()
         # self._ensure_manager_is_up()
@@ -86,8 +86,9 @@ class Local(object):
             self._manager = created_instances[0]
 
     def _ensure_sqs_queues_exist(self):
-        self._queue_to_manager = self._sqs_client.get_queue(utils.Names.local_to_manager_queue)
-        if self._queue_to_manager is None:
+        try:
+            self._queue_to_manager = self._sqs_client.get_queue(utils.Names.local_to_manager_queue)
+        except Exception as e:
             self._queue_to_manager = self._sqs_client.create_queue(utils.Names.local_to_manager_queue)
 
         self._queue_from_manager = self._sqs_client.create_queue(self._queue_from_manager_name)
@@ -103,7 +104,7 @@ class Local(object):
         self._zip_and_upload_code()
 
         self._logger.debug('Sending job to manager via sqs')
-        task_message = messages.Task(self._uuid, self._input_file_s3_name)
+        task_message = messages.Task(local_uuid=self._uuid, input_file_s3_path=self._input_file_s3_name)
         body = messages.Task.encode(task_message)
         self._sqs_client.send_message(queue=self._queue_to_manager, body=body)
 
@@ -118,7 +119,7 @@ class Local(object):
         manager_messages = None
         while manager_messages is None:
             manager_messages = self._sqs_client.get_messages(queue=self._queue_from_manager,
-                                                             timeout=60 * 60,
+                                                             timeout=20,
                                                              number_of_messages=1)
 
         self._logger('Message received from manager')
