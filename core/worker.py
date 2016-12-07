@@ -30,7 +30,7 @@ class Worker(object):
         while True:
             self._check_if_kill_yourself()
             messages = self._sqs_client.get_messages(queue=self.jobs_queue,
-                                                     timeout=60 * 60,
+                                                     timeout=20,
                                                      number_of_messages=1)
             self._logger('Message received from manager')
             message_body = messages[0].body
@@ -120,7 +120,7 @@ class Worker(object):
 
     def _check_if_kill_yourself(self):
         messages = self._sqs_client.get_messages(queue=self.death_queue,
-                                                 timeout=60 * 60,
+                                                 timeout=20,
                                                  number_of_messages=1)
         self._logger('Message received from the death queue')
         message_body = messages[0].body

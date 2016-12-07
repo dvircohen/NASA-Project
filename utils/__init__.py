@@ -2,6 +2,7 @@ import json
 import logging
 
 from utils.asteroid import Asteroid
+from utils.task import Task
 
 
 class Names(object):
