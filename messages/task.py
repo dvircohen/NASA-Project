@@ -5,9 +5,11 @@ class Task(object):
     """
     The Task object is the object that is passed from the local to the manager
     """
-    def __init__(self, input_file_s3_path, local_uuid):
+    def __init__(self, input_file_s3_path, local_uuid, days, n):
         self.input_file_s3_path = input_file_s3_path
         self.local_uuid = local_uuid
+        self.days = days
+        self.n = n
 
     @staticmethod
     def encode(task):

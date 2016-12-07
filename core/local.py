@@ -106,7 +106,10 @@ class Local(object):
         self._zip_and_upload_code()
 
         self._logger.debug('Sending job to manager via sqs')
-        task_message = messages.Task(local_uuid=self._uuid, input_file_s3_path=self._input_file_s3_name)
+        task_message = messages.Task(local_uuid=self._uuid,
+                                     input_file_s3_path=self._input_file_s3_name,
+                                     days=self._args.d,
+                                     n=self._args.n)
         body = messages.Task.encode(task_message)
         self._sqs_client.send_message(queue=self._queue_to_manager, body=body)
 
@@ -197,7 +200,7 @@ def _register_arguments(parser):
             required=True)
 
     parser.add_argument(
-            '-d', '--d',
+            '-d', '--days',
             help='days - how many days in each sampling period (between 1 and 7)',
             type=str,
             required=True)

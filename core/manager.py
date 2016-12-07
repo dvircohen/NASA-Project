@@ -20,13 +20,28 @@ class Manager(object):
         self._workers_to_manager_queue = self._sqs_client.create_queue(utils.Names.worker_to_manager_queue,
                                                                        visibility_timeout=60 * 1)
         self._project_bucket = self._s3_client.create_or_get_bucket(utils.Names.project_bucket_name)
+        self._workers = []
 
         self._tasks = {}
 
     def run(self):
-        self._handle_locals()
+        """
+        Here we will run 2 threads, each with one flow (queue names are not real):
+        Flow 1: loop: read messages from local_to_manager queue -> download input files -> create task for each ->
+        -> create workers if needed -> create jobs for the task -> put jobs in manager_to_workers queue
+        Flow 2: loop: read messages from workers_to_queue -> update the task object in the manager state ->
+        if the task is done create summery file and send to manager_to_local queue + check if we need to kill some
+        workers.
+        :return:
+        """
 
-    def _handle_locals(self):
+        self._handle_local_requests()
+
+    def _handle_local_requests(self):
+        """
+        This is the Flow 1 main function
+        :return:
+        """
         while True:
             local_messages = self._sqs_client.get_messages(self._local_to_manager_queue,
                                                            timeout=20,
@@ -34,12 +49,16 @@ class Manager(object):
             for message in local_messages:
                 body = message.body
                 local_task = messages.Task.decode(body)
-                self._download_and_parse_input_file(local_task)
+                new_task = self._download_and_parse_input_file(local_task)
+                self._tasks[new_task.uuid] = new_task
 
-    def handle_workers(self):
-        pass
+                # TODO: finish the flow, separate it to smaller function
 
-    def add_new_task(self):
+    def handle_worker_done_jobs(self):
+        """
+        This is the Flow 2 main function
+        :return:
+        """
         pass
 
     def _download_and_parse_input_file(self, task):
@@ -50,11 +69,11 @@ class Manager(object):
         task_as_dict = json.loads(input_file.getvalue())
         new_task = utils.Task(uuid=task.local_uuid,
                               start_time=task_as_dict['start-date'],
-                              end_time=task_as_dict['end-time'],
+                              end_time=task_as_dict['end-date'],
                               speed_threshold=task_as_dict['speed-threshold'],
                               diameter_threshold=task_as_dict['diameter-threshold'],
                               miss_threshold=task_as_dict['miss-threshold'])
-        self._tasks[task.local_uuid] = new_task
+        return new_task
 
 
 if __name__ == '__main__':
