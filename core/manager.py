@@ -47,12 +47,11 @@ class Manager(object):
                                                            timeout=20,
                                                            number_of_messages=1)
             for message in local_messages:
-                body = message.body
-                local_task = messages.Task.decode(body)
-                new_task = self._download_and_parse_input_file(local_task)
+                new_task = self._download_input_file_and_create_task_from_message(message)
                 self._tasks[new_task.uuid] = new_task
 
                 # TODO: finish the flow, separate it to smaller function
+                self._create_jobs_and_dispetch_them(new_task)
 
     def handle_worker_done_jobs(self):
         """
@@ -72,8 +71,21 @@ class Manager(object):
                               end_time=task_as_dict['end-date'],
                               speed_threshold=task_as_dict['speed-threshold'],
                               diameter_threshold=task_as_dict['diameter-threshold'],
-                              miss_threshold=task_as_dict['miss-threshold'])
+                              miss_threshold=task_as_dict['miss-threshold'],
+                              days=task.days,
+                              n=task.n)
         return new_task
+
+    def _download_input_file_and_create_task_from_message(self, message):
+        body = message.body
+        local_task = messages.Task.decode(body)
+        return self._download_and_parse_input_file(local_task)
+
+    def _create_jobs_and_dispetch_them(self, task):
+
+        # We create a job for each day in the task
+        for day in task.days.iterkeys():
+            pass
 
 
 if __name__ == '__main__':
