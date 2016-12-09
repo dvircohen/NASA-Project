@@ -9,13 +9,13 @@ class Task(object):
         self._diameter_threshold = diameter_threshold
         self._miss_threshold = miss_threshold
         self._days = {}
-        start_time = datetime.datetime.strptime(start_time, '%d-%m-%Y')
-        end_time = datetime.datetime.strptime(end_time, '%d-%m-%Y')
+        start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d')
+        end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d')
         delta = end_time - start_time
         periods = delta.days / days
         self._number_of_workers = n * periods
         for i in range(delta.days + 1):
-            self._days[(start_time + datetime.timedelta(days=i)).strftime('%d-%m-%Y')] = None
+            self._days[(start_time + datetime.timedelta(days=i)).strftime('%Y-%m-%d')] = None
         pass
 
     @property
@@ -30,8 +30,20 @@ class Task(object):
     def days(self):
         return self._days
 
+    @property
+    def speed_threshold(self):
+        return self._speed_threshold
+
+    @property
+    def diameter_threshold(self):
+        return self._diameter_threshold
+
+    @property
+    def miss_threshold(self):
+        return self._miss_threshold
+
     def add_asteroid_list(self, asteroid_list, date):
-        self._days[date.strftime('%d-%m-%Y')] = asteroid_list
+        self._days[date.strftime('%Y-%m-%d')] = asteroid_list
 
     def is_done(self):
         return all(day is not None for day in self._days.values())

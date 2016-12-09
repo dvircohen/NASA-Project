@@ -15,8 +15,7 @@ class Manager(object):
         self._sqs_client = utils.clients.Sqs()
         self._manager_to_local_queue = self._sqs_client.get_or_create_queue(utils.Names.manager_to_local_queue)
         self._local_to_manager_queue = self._sqs_client.get_or_create_queue(utils.Names.local_to_manager_queue)
-        self._manager_to_workers_queue = self._sqs_client.create_queue(utils.Names.manager_to_workers_queue,
-                                                                       visibility_timeout=60 * 2)
+        self._manager_to_workers_queue = self._sqs_client.get_or_create_queue(utils.Names.manager_to_workers_queue)
         self._workers_to_manager_queue = self._sqs_client.create_queue(utils.Names.worker_to_manager_queue,
                                                                        visibility_timeout=60 * 1)
         self._project_bucket = self._s3_client.create_or_get_bucket(utils.Names.project_bucket_name)
@@ -52,6 +51,7 @@ class Manager(object):
 
                 # TODO: finish the flow, separate it to smaller function
                 self._create_jobs_and_dispetch_them(new_task)
+                message.delete()
 
     def handle_worker_done_jobs(self):
         """
@@ -65,6 +65,7 @@ class Manager(object):
         self._s3_client.download_file_as_object(bucket=self._project_bucket,
                                                 key=task.input_file_s3_path,
                                                 file_object=input_file)
+
         task_as_dict = json.loads(input_file.getvalue())
         new_task = utils.Task(uuid=task.local_uuid,
                               start_time=task_as_dict['start-date'],
@@ -85,7 +86,15 @@ class Manager(object):
 
         # We create a job for each day in the task
         for day in task.days.iterkeys():
-            pass
+            job = messages.Job(start_date=day,
+                               end_date=day,
+                               local_uuid=task.uuid,
+                               speed=task.speed_threshold,
+                               diameter=task.diameter_threshold,
+                               miss=task.miss_threshold)
+            job_message = messages.Job.encode(job)
+            self._sqs_client.send_message(queue=self._manager_to_workers_queue,
+                                          body=job_message)
 
 
 if __name__ == '__main__':
