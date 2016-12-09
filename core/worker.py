@@ -4,6 +4,8 @@ import json
 import datetime
 import requests
 
+import messages
+from messages.job import Job
 from utils import make_asteroid_from_json
 from utils.asteroid import Asteroid
 from utils.clients import *
@@ -17,10 +19,10 @@ class Worker(object):
         # self.queue = _sqs_client.get_queue_by_name(QueueName='worker_queue')
         self._logger = utils.set_logger('worker')
         self._sqs_client = Sqs()
-        self.jobs_queue = self._sqs_client.get_queue("jobs")
-        self.death_queue = self._sqs_client.get_queue("deaths")
-        self.asteroids_queue = self._sqs_client.get_queue("asteroids")
-        self.start_listening()
+        # self.jobs_queue = self._sqs_client.get_queue("jobs")
+        # self.death_queue = self._sqs_client.get_queue("deaths")
+        # self.asteroids_queue = self._sqs_client.get_queue("asteroids")
+        # self.start_listening()
 
     def start_listening(self):
         """
@@ -29,25 +31,33 @@ class Worker(object):
         # TODO find a way to kill a worker
         while True:
             self._check_if_kill_yourself()
-            messages = self._sqs_client.get_messages(queue=self.jobs_queue,
-                                                     timeout=20,
-                                                     number_of_messages=1)
+            messages_from_manager = self._sqs_client.get_messages(queue=self.jobs_queue,
+                                                                  timeout=20,
+                                                                  number_of_messages=1)
             self._logger('Message received from manager')
-            message_body = messages[0].body
-            summery_message = json.loads(message_body)
+            job = Job.decode(messages_from_manager[0])
             # process the messages and return a json str
-            json_ast_list = self.process_message(summery_message)
+            json_ast_list = self.process_message(job)
             # send it back to the manager
             self.send_asteroids(json_ast_list)
 
-    def process_message(self, message):
+    def process_message(self, job):
         """
         get a message and returns the dangerous asteroids list to to queue
         """
-        msg_start_date = message.message_attributes.get('start_date').get('StringValue')
-        msg_end_date = message.message_attributes.get('end_date').get('StringValue')
-        local_id = message.message_attributes.get('local_id').get('StringValue')
-        ast_list = self.get_list_of_asteroids(msg_start_date, msg_end_date, local_id)
+        msg_start_date = job.start_date
+        msg_end_date = job.end_date
+        msg_diameter = job.diameter
+        msg_speed = job.speed
+        msg_miss = job.miss
+        msg_local_uuid = job.local_uuid
+
+        ast_list = self.get_list_of_asteroids(msg_start_date,
+                                              msg_end_date,
+                                              msg_local_uuid,
+                                              msg_diameter,
+                                              msg_speed,
+                                              msg_miss)
 
         # decode to json
         json_ast_list = [x.to_json() for x in ast_list]
@@ -55,14 +65,14 @@ class Worker(object):
 
     def send_asteroids(self, json_ast_list):
         """
-        send the astroids to the manager
+        send the asteroids to the manager
         """
         self._ensure_sqs_queues_exist()
         # go over the asteroids and send them
         for ast in json_ast_list:
             self._sqs_client.send_message(queue=self.asteroids_queue, body=ast)
 
-    def get_list_of_asteroids(self, start_date_str, end_date_str, local_id):
+    def get_list_of_asteroids(self, start_date_str, end_date_str, msg_local_uuid, msg_diameter, msg_speed, msg_miss):
         """
         get the dates and return an asteroids object from NASA
         :return: json objects representing the asteroids list
@@ -75,15 +85,15 @@ class Worker(object):
         data_per_day_list = [response["near_earth_objects"][i] for i in response["near_earth_objects"].keys()]
         asteroids_list = list(itertools.chain.from_iterable(data_per_day_list))
         # make list of asteroid object
-        nasa_asteroids_list = [self._make_asteroid_object(asteroid) for asteroid in asteroids_list]
+        nasa_asteroids_list = [self._make_asteroid_object(asteroid, msg_local_uuid) for asteroid in asteroids_list]
         # remove the none dangerous and add the color
-        dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if self.check_if_dangerous(asteroid)]
+        dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if
+                               self.check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss)]
         # add the local id
-        # dangerous_asteroids = [asteroid.set_local_id(local_id) for asteroid in dangerous_asteroids]
         return dangerous_asteroids
 
     @staticmethod
-    def _make_asteroid_object(asteroid):
+    def _make_asteroid_object(asteroid, msg_local_uuid):
         """
         :param asteroid: a dict representing the asteroid
         :return: a an Asteroid object representing the asteroid without all the unnecessary data
@@ -95,18 +105,18 @@ class Worker(object):
         diameter_max = asteroid["estimated_diameter"]["meters"]["estimated_diameter_max"]  # int
         name = asteroid["name"]  # str
         approach_date = asteroid["close_approach_data"][0]["close_approach_date"]  # str
-        return Asteroid(hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date)
+        return Asteroid(hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date, msg_local_uuid)
 
     @staticmethod
-    def check_if_dangerous(asteroid):
+    def check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss):
         if asteroid.get_hazardous():
-            if asteroid.get_velocity() < 10:
+            if asteroid.get_velocity() < msg_speed:
                 asteroid.set_color("Green")
             else:
-                if asteroid.get_diameter_max() < 200:
+                if asteroid.get_diameter_max() < msg_diameter:
                     asteroid.set_color("Yellow")
                 else:
-                    if asteroid.get_miss_distance() < 0.3:
+                    if asteroid.get_miss_distance() < msg_miss:
                         asteroid.set_color("Red")
 
             return True
@@ -141,15 +151,14 @@ end_date = "2016-11-26"
 api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
 local_id = "worker1"
 worker = Worker()
-data = worker.get_list_of_asteroids(start_date, end_date, local_id)
+data = worker.get_list_of_asteroids(start_date, end_date, local_id, 200, 10, 0.3)
 json1 = data[0].to_json()
-
 
 start = datetime.datetime.strptime("2016-11-12", '%Y-%m-%d')
 end = datetime.datetime.strptime("2016-11-19", '%Y-%m-%d')
 
-a = Task(None, start, end, None, None, None)
-a.add_asteroid_list(data, start)
-json1 = a.make_json()
+# a = Task(None, start, end, None, None, None)
+# a.add_asteroid_list(data, start)
+# json1 = a.make_json()
 # ast1 = make_asteroid_from_json(json1)
 pass
