@@ -14,15 +14,15 @@ from utils.task import Task
 
 class Worker(object):
     def __init__(self):
-        # _sqs_client = boto3.resource('_sqs_client', region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
-        #                      aws_secret_access_key="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")
+        self._sqs_client = boto3.resource("sqs", region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
+                             aws_secret_access_key="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")
         # self.queue = _sqs_client.get_queue_by_name(QueueName='worker_queue')
         self._logger = utils.set_logger('worker')
         self._sqs_client = Sqs()
-        # self.jobs_queue = self._sqs_client.get_queue("jobs")
+        self.jobs_queue = self._sqs_client.get_queue("jobs")
         # self.death_queue = self._sqs_client.get_queue("deaths")
-        # self.asteroids_queue = self._sqs_client.get_queue("asteroids")
-        # self.start_listening()
+        self.asteroids_queue = self._sqs_client.get_queue("asteroids")
+        self.start_listening()
 
     def start_listening(self):
         """
@@ -30,16 +30,20 @@ class Worker(object):
         """
         # TODO find a way to kill a worker
         while True:
-            self._check_if_kill_yourself()
+            # self._check_if_kill_yourself()
             messages_from_manager = self._sqs_client.get_messages(queue=self.jobs_queue,
                                                                   timeout=20,
                                                                   number_of_messages=1)
-            self._logger('Message received from manager')
-            job = Job.decode(messages_from_manager[0])
-            # process the messages and return a json str
-            json_ast_list = self.process_message(job)
-            # send it back to the manager
-            self.send_asteroids(json_ast_list)
+            for message in messages_from_manager:
+                self._logger.debug('Message received from manager')
+                job = Job.decode(message.body)
+                # process the messages and return a json str
+                json_ast_list = self.process_message(job)
+                # send it back to the manager
+                self._logger.debug('Sending the asteroids list to the manager')
+                self.send_asteroids(json_ast_list)
+                self._logger.debug('Deleting the message')
+                message.delete()
 
     def process_message(self, job):
         """
@@ -60,17 +64,15 @@ class Worker(object):
                                               msg_miss)
 
         # decode to json
-        json_ast_list = [x.to_json() for x in ast_list]
+        json_ast_list = [x.__dict__ for x in ast_list]
+        json_ast_list = json.dumps(json_ast_list)
         return json_ast_list
 
     def send_asteroids(self, json_ast_list):
         """
         send the asteroids to the manager
         """
-        self._ensure_sqs_queues_exist()
-        # go over the asteroids and send them
-        for ast in json_ast_list:
-            self._sqs_client.send_message(queue=self.asteroids_queue, body=ast)
+        self._sqs_client.send_message(queue=self.asteroids_queue, body=json_ast_list)
 
     def get_list_of_asteroids(self, start_date_str, end_date_str, msg_local_uuid, msg_diameter, msg_speed, msg_miss):
         """
@@ -88,7 +90,7 @@ class Worker(object):
         nasa_asteroids_list = [self._make_asteroid_object(asteroid, msg_local_uuid) for asteroid in asteroids_list]
         # remove the none dangerous and add the color
         dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if
-                               self.check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss)]
+                               self._check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss)]
         # add the local id
         return dangerous_asteroids
 
@@ -108,7 +110,7 @@ class Worker(object):
         return Asteroid(hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date, msg_local_uuid)
 
     @staticmethod
-    def check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss):
+    def _check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss):
         if asteroid.get_hazardous():
             if asteroid.get_velocity() < msg_speed:
                 asteroid.set_color("Green")
@@ -123,25 +125,19 @@ class Worker(object):
         else:
             return False
 
-    def _ensure_sqs_queues_exist(self):
-        self.jobs_queue = self._sqs_client.get_queue(utils.Names.worker_to_manager_queue)
-        if self.jobs_queue is None:
-            self.jobs_queue = self._sqs_client.create_queue(utils.Names.worker_to_manager_queue)
-
     def _check_if_kill_yourself(self):
         messages = self._sqs_client.get_messages(queue=self.death_queue,
-                                                 timeout=20,
+                                                 timeout=3,
                                                  number_of_messages=1)
         self._logger('Message received from the death queue')
-        message_body = messages[0].body
-        summery_message = json.loads(message_body)
-        to_kill = summery_message['to_kill']
-        if to_kill:
+        message_body = messages[0]
+        if  messages[0] is not None:
             # message received saying you need to kill yourself :(
             self.kil_yourself()
 
     def kil_yourself(self):
         self._logger('Goodbye cruel world  :(')
+        quit()
         # TODO suicide
 
 
@@ -152,8 +148,8 @@ api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
 local_id = "worker1"
 worker = Worker()
 data = worker.get_list_of_asteroids(start_date, end_date, local_id, 200, 10, 0.3)
-json1 = data[0].to_json()
-
+json_ast_list = json.dumps(json_ast_list)
+task = json.loads(json_ast_list)
 start = datetime.datetime.strptime("2016-11-12", '%Y-%m-%d')
 end = datetime.datetime.strptime("2016-11-19", '%Y-%m-%d')
 
