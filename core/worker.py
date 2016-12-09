@@ -60,7 +60,7 @@ class Worker(object):
                                               msg_miss)
 
         # decode to json
-        json_ast_list = [x.to_json() for x in ast_list]
+        json_ast_list = [x.__dict__ for x in ast_list]
         return json_ast_list
 
     def send_asteroids(self, json_ast_list):
@@ -88,7 +88,7 @@ class Worker(object):
         nasa_asteroids_list = [self._make_asteroid_object(asteroid, msg_local_uuid) for asteroid in asteroids_list]
         # remove the none dangerous and add the color
         dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if
-                               self.check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss)]
+                               self._check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss)]
         # add the local id
         return dangerous_asteroids
 
@@ -108,7 +108,7 @@ class Worker(object):
         return Asteroid(hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date, msg_local_uuid)
 
     @staticmethod
-    def check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss):
+    def _check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss):
         if asteroid.get_hazardous():
             if asteroid.get_velocity() < msg_speed:
                 asteroid.set_color("Green")
@@ -130,18 +130,17 @@ class Worker(object):
 
     def _check_if_kill_yourself(self):
         messages = self._sqs_client.get_messages(queue=self.death_queue,
-                                                 timeout=20,
+                                                 timeout=3,
                                                  number_of_messages=1)
         self._logger('Message received from the death queue')
-        message_body = messages[0].body
-        summery_message = json.loads(message_body)
-        to_kill = summery_message['to_kill']
-        if to_kill:
+        message_body = messages[0]
+        if  messages[0] is not None:
             # message received saying you need to kill yourself :(
             self.kil_yourself()
 
     def kil_yourself(self):
         self._logger('Goodbye cruel world  :(')
+        quit()
         # TODO suicide
 
 
@@ -152,8 +151,8 @@ api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
 local_id = "worker1"
 worker = Worker()
 data = worker.get_list_of_asteroids(start_date, end_date, local_id, 200, 10, 0.3)
-json1 = data[0].to_json()
-
+json_ast_list = json.dumps(json_ast_list)
+task = json.loads(json_ast_list)
 start = datetime.datetime.strptime("2016-11-12", '%Y-%m-%d')
 end = datetime.datetime.strptime("2016-11-19", '%Y-%m-%d')
 
