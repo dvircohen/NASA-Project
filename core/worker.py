@@ -14,15 +14,15 @@ from utils.task import Task
 
 class Worker(object):
     def __init__(self):
-        # _sqs_client = boto3.resource('_sqs_client', region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
-        #                      aws_secret_access_key="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")
+        self._sqs_client = boto3.resource("sqs", region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
+                             aws_secret_access_key="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")
         # self.queue = _sqs_client.get_queue_by_name(QueueName='worker_queue')
         self._logger = utils.set_logger('worker')
         self._sqs_client = Sqs()
-        # self.jobs_queue = self._sqs_client.get_queue("jobs")
+        self.jobs_queue = self._sqs_client.get_queue("jobs")
         # self.death_queue = self._sqs_client.get_queue("deaths")
-        # self.asteroids_queue = self._sqs_client.get_queue("asteroids")
-        # self.start_listening()
+        self.asteroids_queue = self._sqs_client.get_queue("asteroids")
+        self.start_listening()
 
     def start_listening(self):
         """
@@ -30,16 +30,20 @@ class Worker(object):
         """
         # TODO find a way to kill a worker
         while True:
-            self._check_if_kill_yourself()
+            # self._check_if_kill_yourself()
             messages_from_manager = self._sqs_client.get_messages(queue=self.jobs_queue,
                                                                   timeout=20,
                                                                   number_of_messages=1)
-            self._logger('Message received from manager')
-            job = Job.decode(messages_from_manager[0])
-            # process the messages and return a json str
-            json_ast_list = self.process_message(job)
-            # send it back to the manager
-            self.send_asteroids(json_ast_list)
+            for message in messages_from_manager:
+                self._logger.debug('Message received from manager')
+                job = Job.decode(message.body)
+                # process the messages and return a json str
+                json_ast_list = self.process_message(job)
+                # send it back to the manager
+                self._logger.debug('Sending the asteroids list to the manager')
+                self.send_asteroids(json_ast_list)
+                self._logger.debug('Deleting the message')
+                message.delete()
 
     def process_message(self, job):
         """
@@ -61,16 +65,14 @@ class Worker(object):
 
         # decode to json
         json_ast_list = [x.__dict__ for x in ast_list]
+        json_ast_list = json.dumps(json_ast_list)
         return json_ast_list
 
     def send_asteroids(self, json_ast_list):
         """
         send the asteroids to the manager
         """
-        self._ensure_sqs_queues_exist()
-        # go over the asteroids and send them
-        for ast in json_ast_list:
-            self._sqs_client.send_message(queue=self.asteroids_queue, body=ast)
+        self._sqs_client.send_message(queue=self.asteroids_queue, body=json_ast_list)
 
     def get_list_of_asteroids(self, start_date_str, end_date_str, msg_local_uuid, msg_diameter, msg_speed, msg_miss):
         """
@@ -122,11 +124,6 @@ class Worker(object):
             return True
         else:
             return False
-
-    def _ensure_sqs_queues_exist(self):
-        self.jobs_queue = self._sqs_client.get_queue(utils.Names.worker_to_manager_queue)
-        if self.jobs_queue is None:
-            self.jobs_queue = self._sqs_client.create_queue(utils.Names.worker_to_manager_queue)
 
     def _check_if_kill_yourself(self):
         messages = self._sqs_client.get_messages(queue=self.death_queue,
