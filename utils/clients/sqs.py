@@ -4,10 +4,14 @@ import utils
 
 
 class Sqs(object):
-    def __init__(self, region_name='us-east-1'):
+    def __init__(self, region_name='us-east-1', logger=None):
         self._sqs = boto3.resource('sqs', region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
                              aws_secret_access_key="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")
-        self._logger = utils.set_logger('sqs_client')
+
+        if logger is None:
+            self._logger = utils.set_logger('sqs_client')
+        else:
+            self._logger = logger.getChild('sqs_client')
 
     def get_queue(self, queue_name):
         queue = None

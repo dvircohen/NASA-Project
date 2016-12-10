@@ -29,7 +29,7 @@ class Local(object):
         self._manager = None
         self._manager_tag = {'Key': 'Role', 'Value': 'Manager'}
         self._project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..',))
-        self._setup_script_path = os.path.join(self._project_path, 'setup_scripts\manager_setup.sh')
+        self._setup_script_path = os.path.join(self._project_path, 'setup_scripts/manager_setup.sh')
         self._project_bucket_name = utils.Names.project_bucket_name
         self._project_bucket = None
         self._queue_to_manager = None
@@ -52,8 +52,9 @@ class Local(object):
         self._ensure_sqs_queues_exist()
         self._ensure_bucket_exist()
         self._upload_files_and_job()
-        # self._ensure_manager_is_up()
-        # self._kill_manager()
+        self._ensure_manager_is_up()
+        self._wait_on_summery_file_and_proccess()
+        self._kill_manager()
 
     def _ensure_manager_is_up(self):
         """
@@ -75,7 +76,7 @@ class Local(object):
             with open(self._setup_script_path, 'r') as myfile:
                 user_data = myfile.read()
             iam_instance_profile = {'Arn': utils.Names.arn}
-            created_instances = self._ec2_client.create_instance(image_id='ami-b66ed3de',
+            created_instances = self._ec2_client.create_instance(image_id='ami-b73b63a0',
                                                                  tags=[self._manager_tag],
                                                                  iam_instance_profile=iam_instance_profile,
                                                                  instance_type='t2.nano',
@@ -120,6 +121,8 @@ class Local(object):
         Create summery html file and save it in place
         :param summery_file_s3_path:
         """
+        while True:
+            pass
         self._logger('Waiting on message from manager')
         manager_messages = None
         while manager_messages is None:

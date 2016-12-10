@@ -5,9 +5,12 @@ import utils
 
 class S3(object):
 
-    def __init__(self, region_name='us-east-1'):
+    def __init__(self, region_name='us-east-1', logger=None):
         self._s3 = boto3.resource('s3', region_name=region_name)
-        self._logger = utils.set_logger('s3_client')
+        if logger is None:
+            self._logger = utils.set_logger('s3_client')
+        else:
+            self._logger = logger.getChild('s3_client')
 
     def create_or_get_bucket(self, name):
         self._logger.debug('Getting or creating bucket. bucket name: {0}'.format(name))

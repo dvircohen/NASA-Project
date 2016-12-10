@@ -18,4 +18,4 @@ cd NASA_Project
 sudo pip install -r requirements.txt
 
 cd core
-python manager.py
+python worker.py

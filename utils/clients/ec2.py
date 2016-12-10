@@ -5,9 +5,12 @@ import utils
 
 class Ec2(object):
 
-    def __init__(self, region_name='us-east-1'):
+    def __init__(self, region_name='us-east-1', logger=None):
         self._ec2 = boto3.resource('ec2', region_name=region_name)
-        self._logger = utils.set_logger('ec2_client')
+        if logger is None:
+            self._logger = utils.set_logger('ec2_client')
+        else:
+            self._logger = logger.getChild('ec2_client')
 
     def get_instance_with_tag(self, wanted_tag):
         """
@@ -49,8 +52,7 @@ class Ec2(object):
                                                InstanceType=instance_type,
                                                IamInstanceProfile=iam_instance_profile,
                                                UserData=user_data,
-                                               KeyName="super_secret_connection"
-                                               )
+                                               KeyName="test_key")
 
         # Add tags to the instances
         self._logger.debug('Instances created. Number of instances: {0}'.format(len(instances)))

@@ -2,7 +2,8 @@ import boto3
 import StringIO
 import json
 import pickle
-import thread
+import threading
+import os
 
 import utils
 import utils.clients
@@ -10,22 +11,42 @@ import messages
 
 
 class Manager(object):
-
     def __init__(self):
+        self._tasks_lock = threading.Lock()
+        self._tasks = {}
         self._logger = utils.set_logger('manager')
-        self._e2_client = utils.clients.Ec2()
-        self._s3_client = utils.clients.S3()
-        self._sqs_client = utils.clients.Sqs()
+
+    def run(self):
+
+        # Create new threads
+        local_thread = ManagerEmployee('local', self._tasks_lock, self._tasks, self._logger)
+        worker_thread = ManagerEmployee('job', self._tasks_lock, self._tasks, self._logger)
+
+        # Start new Threads
+        local_thread.start()
+        worker_thread.start()
+
+
+class ManagerEmployee(threading.Thread):
+
+    def __init__(self, role, days_lock, tasks, logger):
+        super(ManagerEmployee, self).__init__()
+        self._role = role
+        self._days_lock = days_lock
+        self._project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..',))
+        # self._logger_file_path = os.path.join(self._project_path, 'manager.log')
+        self._logger = logger.getChild(role)
+        self._e2_client = utils.clients.Ec2(logger=self._logger)
+        self._s3_client = utils.clients.S3(logger=self._logger)
+        self._sqs_client = utils.clients.Sqs(logger=self._logger)
         self._manager_to_local_queue = self._sqs_client.get_or_create_queue(utils.Names.manager_to_local_queue)
         self._local_to_manager_queue = self._sqs_client.get_or_create_queue(utils.Names.local_to_manager_queue)
         self._manager_to_workers_queue = self._sqs_client.get_or_create_queue(utils.Names.manager_to_workers_queue)
-        self._workers_to_manager_queue = self._sqs_client.create_queue(utils.Names.worker_to_manager_queue,
-                                                                       visibility_timeout=60 * 1)
+        self._workers_to_manager_queue = self._sqs_client.get_or_create_queue(utils.Names.worker_to_manager_queue)
         self._project_bucket = self._s3_client.create_or_get_bucket(utils.Names.project_bucket_name)
         self._workers = []
         self._needed_number_of_workers = 0
-
-        self._tasks = {}
+        self._tasks = tasks
 
     def run(self):
         """
@@ -38,11 +59,12 @@ class Manager(object):
         :return:
         """
 
-        thread.start_new_thread(self._handle_local_requests)
-        # thread.start_new_thread( self._handle_worker_done_jobs)
-
-        # self._handle_local_requests()
-        self._handle_worker_done_jobs()
+        if self._role == 'local':
+            self._logger.debug('Manager of type local starting')
+            self._handle_local_requests()
+        else:
+            self._logger.debug('Manager of type job starting')
+            self._handle_worker_done_jobs()
 
     def _handle_local_requests(self):
         """
@@ -105,6 +127,7 @@ class Manager(object):
 
     def _download_and_parse_input_file(self, task):
         input_file = StringIO.StringIO()
+        self._logger.debug('Downloading input file as object. local_uuid: {0}'.format(task.local_uuid))
         self._s3_client.download_file_as_object(bucket=self._project_bucket,
                                                 key=task.input_file_s3_path,
                                                 file_object=input_file)
