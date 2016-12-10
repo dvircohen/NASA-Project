@@ -3,17 +3,19 @@ import json
 
 
 class Task(object):
-    def __init__(self, uuid, start_time, end_time, speed_threshold, diameter_threshold, miss_threshold, days, n):
+    def __init__(self, uuid, start_time, end_time, speed_threshold, diameter_threshold, miss_threshold, n_days, n):
         self._uuid = uuid
         self._speed_threshold = speed_threshold
         self._diameter_threshold = diameter_threshold
         self._miss_threshold = miss_threshold
         self._days = {}
+        self._n_days = n_days
         start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d')
         end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d')
         delta = end_time - start_time
-        periods = delta.days / days
+        periods = delta.days / self._n_days
         self._number_of_workers = periods / n
+        self._number_of_workers = max([self._number_of_workers, 1])
         for i in range(delta.days + 1):
             self._days[(start_time + datetime.timedelta(days=i)).strftime('%Y-%m-%d')] = None
         pass

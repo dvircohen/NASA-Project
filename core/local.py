@@ -2,6 +2,8 @@ import argparse
 import os
 import uuid
 import json
+import StringIO
+from jinja2 import Template
 
 import shutil
 
@@ -121,29 +123,45 @@ class Local(object):
         Create summery html file and save it in place
         :param summery_file_s3_path:
         """
-        while True:
-            pass
-        self._logger('Waiting on message from manager')
-        manager_messages = None
-        while manager_messages is None:
+        self._logger.debug('Waiting on message from manager')
+        manager_messages = []
+        while not manager_messages:
             manager_messages = self._sqs_client.get_messages(queue=self._queue_from_manager,
                                                              timeout=20,
                                                              number_of_messages=1)
+            for message in manager_messages:
+                self._logger.debug('Message received from manager')
+                done_job = messages.DoneTask.decode(message.body)
+                summery_file_json = StringIO.StringIO()
+                self._s3_client.download_file_as_object(bucket=self._project_bucket,
+                                                        key=done_job.summery_file_s3_key,
+                                                        file_object=summery_file_json)
 
-        self._logger('Message received from manager')
-        message_body = manager_messages[0].body
-        summery_message = json.loads(message_body)
-        summery_file_name = summery_message['summery_file_name']
+                self._logger.debug('Summery file downloaded')
+                self._create_html_output(summery_file_json.getvalue())
 
-        self._logger('Downloading summery file from S3')
-        local_file_path = os.path.join(self._files_folder, 'summery_file.json')
-        self._s3_client.download_file(self._project_bucket,
-                                      summery_file_name,
-                                      local_file_path)
+    def _create_html_output(self, summery_file_json):
+        asteroids = json.loads(summery_file_json)
+        final_asteroids = []
+        for day in asteroids.itervalues():
+            for asteroid in day:
+                new_asteroid = utils.Asteroid(hazardous=asteroid['hazardous'],
+                                              diameter_max=asteroid['diameter_max'],
+                                              diameter_min=asteroid['diameter_max'],
+                                              approach_date=asteroid['approach_date'],
+                                              velocity=asteroid['velocity'],
+                                              miss_distance=asteroid['miss_distance'],
+                                              name=asteroid['name'])
+                new_asteroid.set_color(asteroid['color'])
+                final_asteroids.append(new_asteroid)
 
-        self._logger('Summery file downloaded. file_path: {0}'.format(local_file_path))
+        template_path = os.path.join(self._project_path, 'resources/output_template.html')
+        with open(template_path, 'rb') as template_file:
+            template = Template(template_file.read())
 
-        # TODO: create html file here
+        with open(self._output_file_path, 'wb') as o:
+            o.write(template.render({'asteroids': final_asteroids, 'we_gonna_die': 'true'}))
+
 
     def _upload_input_file(self):
         self._logger.debug('Uploading file. filename: {0}, file path: {1}'.format(self._input_file_s3_name,

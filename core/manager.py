@@ -14,13 +14,25 @@ class Manager(object):
     def __init__(self):
         self._tasks_lock = threading.Lock()
         self._tasks = {}
+        self._workers = []
+        self._workers_lock = threading.Lock()
         self._logger = utils.set_logger('manager')
 
     def run(self):
 
         # Create new threads
-        local_thread = ManagerEmployee('local', self._tasks_lock, self._tasks, self._logger)
-        worker_thread = ManagerEmployee('job', self._tasks_lock, self._tasks, self._logger)
+        local_thread = ManagerEmployee('local',
+                                       self._tasks_lock,
+                                       self._tasks,
+                                       self._workers_lock,
+                                       self._workers,
+                                       self._logger)
+        worker_thread = ManagerEmployee('job',
+                                        self._tasks_lock,
+                                        self._tasks,
+                                        self._workers_lock,
+                                        self._workers,
+                                        self._logger)
 
         # Start new Threads
         local_thread.start()
@@ -29,10 +41,10 @@ class Manager(object):
 
 class ManagerEmployee(threading.Thread):
 
-    def __init__(self, role, days_lock, tasks, logger):
+    def __init__(self, role, tasks_lock, tasks, workers_lock, workers, logger):
         super(ManagerEmployee, self).__init__()
         self._role = role
-        self._days_lock = days_lock
+        self._tasks_lock = tasks_lock
         self._project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..',))
         # self._logger_file_path = os.path.join(self._project_path, 'manager.log')
         self._logger = logger.getChild(role)
@@ -44,8 +56,10 @@ class ManagerEmployee(threading.Thread):
         self._manager_to_workers_queue = self._sqs_client.get_or_create_queue(utils.Names.manager_to_workers_queue)
         self._workers_to_manager_queue = self._sqs_client.get_or_create_queue(utils.Names.worker_to_manager_queue)
         self._project_bucket = self._s3_client.create_or_get_bucket(utils.Names.project_bucket_name)
-        self._workers = []
-        self._needed_number_of_workers = 0
+        self._setup_script_path = os.path.join(self._project_path, 'setup_scripts/worker_setup.sh')
+        self._worker_tag = {'Key': 'Role', 'Value': 'Worker'}
+        self._workers = workers
+        self._worker_lock = workers_lock
         self._tasks = tasks
 
     def run(self):
@@ -72,17 +86,44 @@ class ManagerEmployee(threading.Thread):
         :return:
         """
         while True:
-            self._update_number_of_workers()
             local_messages = self._sqs_client.get_messages(self._local_to_manager_queue,
                                                            timeout=20,
                                                            number_of_messages=1)
             for message in local_messages:
                 new_task = self._download_input_file_and_create_task_from_message(message)
-                self._tasks[new_task.uuid] = new_task
-
-                # TODO: finish the flow, separate it to smaller function
+                self._tasks_lock.acquire()
+                try:
+                    self._tasks[new_task.uuid] = new_task
+                finally:
+                    self._tasks_lock.release()
+                self._create_workers_if_needed(new_task)
                 self._create_jobs_and_dispetch_them(new_task)
                 message.delete()
+
+    def _create_workers_if_needed(self, task):
+        self._worker_lock.acquire()
+        try:
+            number_of_needed_workers = task.number_of_workers
+            missing_work_force = number_of_needed_workers - len(self._workers)
+            if missing_work_force != 0:
+
+                self._logger.debug('Creating new workers. new_workers: {0}, old_workers {1}'.format(missing_work_force,
+                                                                                                    len(self._workers)))
+                with open(self._setup_script_path, 'r') as myfile:
+                    user_data = myfile.read()
+                iam_instance_profile = {'Arn': utils.Names.arn}
+                new_workers = self._e2_client.create_instance(image_id='ami-b73b63a0',
+                                                              tags=[self._worker_tag],
+                                                              iam_instance_profile=iam_instance_profile,
+                                                              instance_type='t2.nano',
+                                                              min_count=1,
+                                                              max_count=missing_work_force,
+                                                              user_data=user_data)
+                # for new_worker in new_workers:
+                #    self._workers.append(new_worker)
+                self._workers.extend(new_workers)
+        finally:
+            self._worker_lock.release()
 
     def _handle_worker_done_jobs(self):
         """
@@ -97,12 +138,33 @@ class ManagerEmployee(threading.Thread):
                 done_job = message.body
                 done_job = pickle.loads(done_job)
                 local_uuid = done_job.local_uuid
-                relevant_task = self._tasks[local_uuid]
-                relevant_task.add_asteroid_list(asteroid_list=done_job.asteroids, date=done_job.date)
-                if relevant_task.is_done():
-                    self._create_summery_file_and_send(relevant_task)
-                    del self._tasks[local_uuid]
+                self._tasks_lock.acquire()
+                try:
+                    if local_uuid in self._tasks:
+                        relevant_task = self._tasks[local_uuid]
+                        relevant_task.add_asteroid_list(asteroid_list=done_job.asteroids, date=done_job.date)
+                        if relevant_task.is_done():
+                            self._create_summery_file_and_send(relevant_task)
+                            del self._tasks[local_uuid]
+                            self._delete_workers_if_needed()
+                except Exception as e:
+                    pass
+                finally:
+                    self._tasks_lock.release()
                 message.delete()
+
+    def _delete_workers_if_needed(self):
+        self._worker_lock.acquire()
+        try:
+            if len(self._tasks) == 0:
+
+                # No more tasks, kill workers
+                self._logger.debug('No more tasks for now, deleting workers')
+                for worker in self._workers:
+                    worker.terminate()
+                    worker.pop()
+        finally:
+            self._worker_lock.release()
 
     def _create_summery_file_and_send(self, task):
 
@@ -120,11 +182,6 @@ class ManagerEmployee(threading.Thread):
         message_to_local = messages.DoneTask.encode(message_to_local)
         self._sqs_client.send_message(local_queue, message_to_local)
 
-    def _update_number_of_workers(self):
-        if len(self._tasks):
-            needed_workers = max([task.number_of_workers for task in self._tasks.itervalues()])
-        pass
-
     def _download_and_parse_input_file(self, task):
         input_file = StringIO.StringIO()
         self._logger.debug('Downloading input file as object. local_uuid: {0}'.format(task.local_uuid))
@@ -139,7 +196,7 @@ class ManagerEmployee(threading.Thread):
                               speed_threshold=task_as_dict['speed-threshold'],
                               diameter_threshold=task_as_dict['diameter-threshold'],
                               miss_threshold=task_as_dict['miss-threshold'],
-                              days=task.days,
+                              n_days=task.days,
                               n=task.n)
         return new_task
 
