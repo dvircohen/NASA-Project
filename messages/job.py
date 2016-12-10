@@ -19,14 +19,14 @@ class Job(object):
             return json.dumps(job.__dict__)
 
         # If the instance is not of type Task raise
-        raise TypeError('Expected object of type Task, got object of type {0}'.format(task.__class__.__name__))
+        raise TypeError('Expected object of type Task, got object of type {0}'.format(job.__class__.__name__))
 
     @staticmethod
     def decode(job):
         try:
-            task = json.loads(job)
+            job = json.loads(job)
 
             # unpacking dict as kargs
-            return Job(**task)
+            return Job(**job)
         except Exception as e:
             raise TypeError('Error parsing the json')

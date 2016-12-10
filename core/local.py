@@ -19,7 +19,7 @@ class Local(object):
         self._code = None
         self._input_file_local_path = args.input_file_name
         self._output_file_path = args.output_file_name
-        self._number_of_days_per_period = args.d
+        self._number_of_days_per_period = int(args.days)
         self._number_periods_per_worker = args.n
         self._terminate = args.terminate
         self._input_file_s3_path = None
@@ -108,7 +108,7 @@ class Local(object):
         self._logger.debug('Sending job to manager via sqs')
         task_message = messages.Task(local_uuid=self._uuid,
                                      input_file_s3_path=self._input_file_s3_name,
-                                     days=self._args.d,
+                                     days=self._args.days,
                                      n=self._args.n)
         body = messages.Task.encode(task_message)
         self._sqs_client.send_message(queue=self._queue_to_manager, body=body)
@@ -196,13 +196,13 @@ def _register_arguments(parser):
     parser.add_argument(
             '-n',
             help='workers - periods ratio (how many periods per worker)',
-            type=str,
+            type=int,
             required=True)
 
     parser.add_argument(
             '-d', '--days',
             help='days - how many days in each sampling period (between 1 and 7)',
-            type=str,
+            type=int,
             required=True)
 
     parser.add_argument(

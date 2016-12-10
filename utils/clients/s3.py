@@ -31,6 +31,14 @@ class S3(object):
             self._logger.error('Error while uploading file. error: {0}'.format(e.message))
             raise e
 
+    def upload_object_as_file(self, bucket, key, file_object):
+        try:
+            self._logger.debug('Uploading object as file. key: {0}, bucket: {1}'.format(key, bucket))
+            bucket.upload_fileobj(file_object, key)
+        except Exception as e:
+            self._logger.error('Error while uploading file. error: {0}'.format(e.message))
+            raise e
+
     def download_file(self, bucket, key, local_filename):
         """
         download a file

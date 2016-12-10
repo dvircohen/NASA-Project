@@ -3,6 +3,7 @@ import json
 
 import datetime
 import requests
+import pickle
 
 import messages
 from messages.job import Job
@@ -64,9 +65,9 @@ class Worker(object):
                                               msg_miss)
 
         # decode to json
-        json_ast_list = [x.__dict__ for x in ast_list]
-        json_ast_list = json.dumps(json_ast_list)
-        return json_ast_list
+        result = messages.DoneJob(local_uuid=job.local_uuid, date=job.start_date, asteroids=ast_list)
+        result = pickle.dumps(result)
+        return result
 
     def send_asteroids(self, json_ast_list):
         """
@@ -86,16 +87,19 @@ class Worker(object):
                                                                                                 nasa_api_key)).json()
         data_per_day_list = [response["near_earth_objects"][i] for i in response["near_earth_objects"].keys()]
         asteroids_list = list(itertools.chain.from_iterable(data_per_day_list))
+
         # make list of asteroid object
-        nasa_asteroids_list = [self._make_asteroid_object(asteroid, msg_local_uuid) for asteroid in asteroids_list]
+        nasa_asteroids_list = [self._make_asteroid_object(asteroid) for asteroid in asteroids_list]
+
         # remove the none dangerous and add the color
         dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if
                                self._check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss)]
+
         # add the local id
         return dangerous_asteroids
 
     @staticmethod
-    def _make_asteroid_object(asteroid, msg_local_uuid):
+    def _make_asteroid_object(asteroid):
         """
         :param asteroid: a dict representing the asteroid
         :return: a an Asteroid object representing the asteroid without all the unnecessary data
@@ -107,7 +111,7 @@ class Worker(object):
         diameter_max = asteroid["estimated_diameter"]["meters"]["estimated_diameter_max"]  # int
         name = asteroid["name"]  # str
         approach_date = asteroid["close_approach_data"][0]["close_approach_date"]  # str
-        return Asteroid(hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date, msg_local_uuid)
+        return Asteroid(hazardous, miss_distance, velocity, diameter_min, diameter_max, name, approach_date)
 
     @staticmethod
     def _check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss):
