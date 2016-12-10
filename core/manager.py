@@ -1,6 +1,8 @@
 import boto3
 import StringIO
 import json
+import pickle
+import thread
 
 import utils
 import utils.clients
@@ -10,6 +12,7 @@ import messages
 class Manager(object):
 
     def __init__(self):
+        self._logger = utils.set_logger('manager')
         self._e2_client = utils.clients.Ec2()
         self._s3_client = utils.clients.S3()
         self._sqs_client = utils.clients.Sqs()
@@ -20,6 +23,7 @@ class Manager(object):
                                                                        visibility_timeout=60 * 1)
         self._project_bucket = self._s3_client.create_or_get_bucket(utils.Names.project_bucket_name)
         self._workers = []
+        self._needed_number_of_workers = 0
 
         self._tasks = {}
 
@@ -34,7 +38,11 @@ class Manager(object):
         :return:
         """
 
-        self._handle_local_requests()
+        thread.start_new_thread(self._handle_local_requests)
+        # thread.start_new_thread( self._handle_worker_done_jobs)
+
+        # self._handle_local_requests()
+        self._handle_worker_done_jobs()
 
     def _handle_local_requests(self):
         """
@@ -42,6 +50,7 @@ class Manager(object):
         :return:
         """
         while True:
+            self._update_number_of_workers()
             local_messages = self._sqs_client.get_messages(self._local_to_manager_queue,
                                                            timeout=20,
                                                            number_of_messages=1)
@@ -53,11 +62,45 @@ class Manager(object):
                 self._create_jobs_and_dispetch_them(new_task)
                 message.delete()
 
-    def handle_worker_done_jobs(self):
+    def _handle_worker_done_jobs(self):
         """
         This is the Flow 2 main function
         :return:
         """
+        while True:
+            worker_messages = self._sqs_client.get_messages(self._workers_to_manager_queue,
+                                                            timeout=20,
+                                                            number_of_messages=1)
+            for message in worker_messages:
+                done_job = message.body
+                done_job = pickle.loads(done_job)
+                local_uuid = done_job.local_uuid
+                relevant_task = self._tasks[local_uuid]
+                relevant_task.add_asteroid_list(asteroid_list=done_job.asteroids, date=done_job.date)
+                if relevant_task.is_done():
+                    self._create_summery_file_and_send(relevant_task)
+                    del self._tasks[local_uuid]
+                message.delete()
+
+    def _create_summery_file_and_send(self, task):
+
+        # Upload summery file to s3
+        summery_file = task.make_json()
+        file_object = StringIO.StringIO()
+        file_object.write(summery_file)
+        file_object.seek(0)
+        summery_file_name = 'summery_file_' + task.uuid + '.json'
+        self._s3_client.upload_object_as_file(self._project_bucket, key=summery_file_name, file_object=file_object)
+
+        # Send message to local about the summery file
+        local_queue = self._sqs_client.get_queue(utils.Names.manager_to_local_queue + '_' + task.uuid)
+        message_to_local = messages.DoneTask(summery_file_name)
+        message_to_local = messages.DoneTask.encode(message_to_local)
+        self._sqs_client.send_message(local_queue, message_to_local)
+
+    def _update_number_of_workers(self):
+        if len(self._tasks):
+            needed_workers = max([task.number_of_workers for task in self._tasks.itervalues()])
         pass
 
     def _download_and_parse_input_file(self, task):
@@ -80,6 +123,7 @@ class Manager(object):
     def _download_input_file_and_create_task_from_message(self, message):
         body = message.body
         local_task = messages.Task.decode(body)
+        self._logger.debug('Manager handling local message. local_uuid: {0}'.format(local_task.local_uuid))
         return self._download_and_parse_input_file(local_task)
 
     def _create_jobs_and_dispetch_them(self, task):

@@ -13,7 +13,7 @@ class Task(object):
         end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d')
         delta = end_time - start_time
         periods = delta.days / days
-        self._number_of_workers = n * periods
+        self._number_of_workers = periods / n
         for i in range(delta.days + 1):
             self._days[(start_time + datetime.timedelta(days=i)).strftime('%Y-%m-%d')] = None
         pass
@@ -43,7 +43,7 @@ class Task(object):
         return self._miss_threshold
 
     def add_asteroid_list(self, asteroid_list, date):
-        self._days[date.strftime('%Y-%m-%d')] = asteroid_list
+        self._days[date] = asteroid_list
 
     def is_done(self):
         return all(day is not None for day in self._days.values())

@@ -19,7 +19,7 @@ class Sqs(object):
             raise e
         return queue
 
-    def create_queue(self, queue_name, visibility_timeout=30 * 60):
+    def create_queue(self, queue_name, visibility_timeout=2):
         """
         :param queue_name: name of the queue
         :param visibility_timeout: number of seconds for a message to be in in-filght mode.
