@@ -35,6 +35,8 @@ def set_logger(logger_name, logger_file=None):
 
     # handle file logger
     if logger_file is not None:
+        log_file = open(logger_file, 'w+')
+        log_file.close()
         file_handler = logging.FileHandler(logger_file)
         file_handler.setLevel(logging.DEBUG)
         file_handler.setFormatter(formatter)
