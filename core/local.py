@@ -56,7 +56,6 @@ class Local(object):
         self._upload_files_and_job()
         self._ensure_manager_is_up()
         self._wait_on_summery_file_and_proccess()
-        self._kill_manager()
 
     def _ensure_manager_is_up(self):
         """
@@ -76,7 +75,8 @@ class Local(object):
             # No manager up, create a new one (with tag)
             self._logger.debug('No manager up, creating manager')
             with open(self._setup_script_path, 'r') as myfile:
-                user_data = myfile.read().format(os.environ.get('AWS_ACCESS_KEY_ID'), os.environ.get('AWS_SECRET_ACCESS_KEY'))
+                user_data = myfile.read().format(os.environ.get('AWS_ACCESS_KEY_ID'),
+                                                 os.environ.get('AWS_SECRET_ACCESS_KEY'))
             iam_instance_profile = {'Arn': utils.Names.arn}
             created_instances = self._ec2_client.create_instance(image_id='ami-b73b63a0',
                                                                  tags=[self._manager_tag],
@@ -84,7 +84,8 @@ class Local(object):
                                                                  instance_type='t2.nano',
                                                                  min_count=1,
                                                                  max_count=1,
-                                                                 user_data=user_data)
+                                                                 user_data=user_data,
+                                                                 instance_initiated_shutdown_behavior='terminate')
 
             # We only asked for one instance so we take the first element
             self._logger.debug('Manager created')
@@ -112,7 +113,8 @@ class Local(object):
         task_message = messages.Task(local_uuid=self._uuid,
                                      input_file_s3_path=self._input_file_s3_name,
                                      days=self._args.days,
-                                     n=self._args.n)
+                                     n=self._args.n,
+                                     terminate=self._terminate)
         body = messages.Task.encode(task_message)
         self._sqs_client.send_message(queue=self._queue_to_manager, body=body)
 
@@ -162,7 +164,6 @@ class Local(object):
         with open(self._output_file_path, 'wb') as o:
             o.write(template.render({'asteroids': final_asteroids, 'we_gonna_die': 'true'}))
 
-
     def _upload_input_file(self):
         self._logger.debug('Uploading file. filename: {0}, file path: {1}'.format(self._input_file_s3_name,
                                                                                   self._input_file_local_path))
@@ -173,17 +174,6 @@ class Local(object):
     def _ensure_bucket_exist(self):
         self._logger.debug('Ensuring bucket exist. bucket name: {0}'.format(self._project_bucket_name))
         self._project_bucket = self._s3_client.create_or_get_bucket(self._project_bucket_name)
-
-    def _kill_manager(self):
-        """
-        Terminate the manager
-        :return:
-        """
-        # TODO: need to check the assagiment specefication, maybe we need to let the manager finish all it current
-        # tasks before killing it
-        if self._terminate:
-            self._logger.debug('Terminating manager')
-            response = self._manager.terminate()
 
     def _zip_and_upload_code(self):
         self._logger.debug('Zipping project code in prevention to send')

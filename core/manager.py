@@ -4,6 +4,7 @@ import json
 import pickle
 import threading
 import os
+import subprocess
 
 from collections import defaultdict
 
@@ -20,31 +21,50 @@ class Manager(object):
         self._workers_lock = threading.Lock()
         self._logger = utils.set_logger('manager')
 
+        # Create new threads
+        self._local_thread = ManagerEmployee(self,
+                                             'local',
+                                             self._tasks_lock,
+                                             self._tasks,
+                                             self._workers_lock,
+                                             self._workers,
+                                             self._logger)
+        self._worker_thread = ManagerEmployee(self,
+                                              'job',
+                                              self._tasks_lock,
+                                              self._tasks,
+                                              self._workers_lock,
+                                              self._workers,
+                                              self._logger)
+
     def run(self):
 
-        # Create new threads
-        local_thread = ManagerEmployee('local',
-                                       self._tasks_lock,
-                                       self._tasks,
-                                       self._workers_lock,
-                                       self._workers,
-                                       self._logger)
-        worker_thread = ManagerEmployee('job',
-                                        self._tasks_lock,
-                                        self._tasks,
-                                        self._workers_lock,
-                                        self._workers,
-                                        self._logger)
-
         # Start new Threads
-        local_thread.start()
-        worker_thread.start()
+        self._local_thread.start()
+        self._worker_thread.start()
+
+        # Wait on both thread
+        self._worker_thread.join()
+        self._logger.debug('Worker thread went to sleep')
+
+        self._local_thread.join()
+        self._logger.debug('Both thread went to sleep, commencing shutdown')
+
+        if 'ROY_IS_THE_BEST' in os.environ:
+            subprocess.call('/bin/bash -c "shutdown -h now"', shell=True)
+
+    def flag_local_terminate(self):
+        self._local_thread.terminate_local()
+
+    def flag_worker_terminate(self):
+        self._worker_thread.flag_terminate()
 
 
 class ManagerEmployee(threading.Thread):
 
-    def __init__(self, role, tasks_lock, tasks, workers_lock, workers, logger):
+    def __init__(self, manager, role, tasks_lock, tasks, workers_lock, workers, logger):
         super(ManagerEmployee, self).__init__()
+        self._manager = manager
         self._role = role
         self._tasks_lock = tasks_lock
         self._project_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..',))
@@ -63,7 +83,8 @@ class ManagerEmployee(threading.Thread):
         self._workers = workers
         self._worker_lock = workers_lock
         self._tasks = tasks
-        self._workers_statistic = defaultdict(lambda : defaultdict(int))
+        self._workers_statistic = defaultdict(lambda: defaultdict(int))
+        self._terminate = False
 
     def run(self):
         """
@@ -83,12 +104,18 @@ class ManagerEmployee(threading.Thread):
             self._logger.debug('Manager of type job starting')
             self._handle_worker_done_jobs()
 
+    def flag_terminate(self):
+        self._terminate = True
+
     def _handle_local_requests(self):
         """
         This is the Flow 1 main function
         :return:
         """
         while True:
+            if self._terminate:
+                self._logger.debug('Bye bye cruel world')
+                exit(0)
             local_messages = self._sqs_client.get_messages(self._local_to_manager_queue,
                                                            timeout=20,
                                                            number_of_messages=1)
@@ -113,7 +140,8 @@ class ManagerEmployee(threading.Thread):
                 self._logger.debug('Creating new workers. new_workers: {0}, old_workers {1}'.format(missing_work_force,
                                                                                                     len(self._workers)))
                 with open(self._setup_script_path, 'r') as myfile:
-                    user_data = myfile.read().format(os.environ.get('AWS_ACCESS_KEY_ID'), os.environ.get('AWS_SECRET_ACCESS_KEY'))
+                    user_data = myfile.read().format(os.environ.get('AWS_ACCESS_KEY_ID'),
+                                                     os.environ.get('AWS_SECRET_ACCESS_KEY'))
                 iam_instance_profile = {'Arn': utils.Names.arn}
                 new_workers = self._e2_client.create_instance(image_id='ami-b73b63a0',
                                                               tags=[self._worker_tag],
@@ -154,6 +182,7 @@ class ManagerEmployee(threading.Thread):
                             self._create_summery_file_and_send(relevant_task)
                             del self._tasks[local_uuid]
                             self._delete_workers_if_needed()
+                            self._worker_terminate_if_needed()
                 except Exception as e:
                     pass
                 finally:
@@ -169,7 +198,8 @@ class ManagerEmployee(threading.Thread):
                 self._logger.debug('No more tasks for now, deleting workers')
                 for worker in self._workers:
                     worker.terminate()
-                    worker.pop()
+                for i in range(0, len(self._workers)):
+                    self._workers.pop()
         finally:
             self._worker_lock.release()
 
@@ -210,6 +240,8 @@ class ManagerEmployee(threading.Thread):
     def _download_input_file_and_create_task_from_message(self, message):
         body = message.body
         local_task = messages.Task.decode(body)
+        if local_task.terminate:
+            self._manager.flag_worker_terminate()
         self._logger.debug('Manager handling local message. local_uuid: {0}'.format(local_task.local_uuid))
         return self._download_and_parse_input_file(local_task)
 
@@ -231,6 +263,20 @@ class ManagerEmployee(threading.Thread):
         self._workers_statistic[done_job.worker_id]["total_asteroids"] += done_job.total_asteroids
         self._workers_statistic[done_job.worker_id]["num_of_safe"] += done_job.num_of_safe
         self._workers_statistic[done_job.worker_id]["num_of_dangerous"] += done_job.num_of_dangerous
+
+    def _worker_terminate_if_needed(self):
+        if self._terminate and len(self._tasks) == 0:
+
+            # No more tasks and got terminate flag, tell local thread to terminate and exit
+            self._manager.flag_local_terminate()
+            self._logger.debug('No more tasks and got terminate order, exiting')
+            exit(0)
+
+    def terminate_local(self):
+
+        self._logger.debug('Local got terminate order')
+        self._terminate = True
+
 
 if __name__ == '__main__':
     manager_instance = Manager()

@@ -42,7 +42,8 @@ class Ec2(object):
                         user_data,
                         instance_type='t2.nano',
                         min_count=1,
-                        max_count=1):
+                        max_count=1,
+                        instance_initiated_shutdown_behavior='stop'):
 
         # Create the instances
         self._logger.debug('Creating instances')
@@ -52,7 +53,8 @@ class Ec2(object):
                                                InstanceType=instance_type,
                                                IamInstanceProfile=iam_instance_profile,
                                                UserData=user_data,
-                                               KeyName="test_key")
+                                               KeyName="test_key",
+                                               InstanceInitiatedShutdownBehavior=instance_initiated_shutdown_behavior)
 
         # Add tags to the instances
         self._logger.debug('Instances created. Number of instances: {0}'.format(len(instances)))
