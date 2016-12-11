@@ -7,6 +7,7 @@ AWS_SECRET_ACCESS_KEY={}
 
 export REGION_NAME AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 export PYTHONPATH=$PYTHONPATH:/home/ec2-user/secret1/NASA_Project
+export ROY_IS_THE_BEST=true
 
 
 mkdir -p /home/ec2-user/secret1/
