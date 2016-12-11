@@ -49,6 +49,9 @@ class Task(object):
     def is_done(self):
         return all(day is not None for day in self._days.values())
 
+    def get_how_many_days_left(self):
+        return self._days.values().count(None)
+
     def make_json(self):
         # json.dumps(self.days)
         return json.dumps(self._days, default=lambda o: o.__dict__, sort_keys=True, indent=4)

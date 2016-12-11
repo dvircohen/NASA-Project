@@ -76,7 +76,7 @@ class Local(object):
             # No manager up, create a new one (with tag)
             self._logger.debug('No manager up, creating manager')
             with open(self._setup_script_path, 'r') as myfile:
-                user_data = myfile.read()
+                user_data = myfile.read().format(os.environ.get('AWS_ACCESS_KEY_ID'), os.environ.get('AWS_SECRET_ACCESS_KEY'))
             iam_instance_profile = {'Arn': utils.Names.arn}
             created_instances = self._ec2_client.create_instance(image_id='ami-b73b63a0',
                                                                  tags=[self._manager_tag],

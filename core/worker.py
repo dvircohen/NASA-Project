@@ -27,7 +27,10 @@ class Worker(object):
         self.asteroids_queue = self._sqs_client.get_queue("asteroids")
         self.asteroids_count = 0
         self._uuid = str(uuid.uuid4())
+        self.nasa_api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
+
         self.start_listening()
+
         pass
 
     def start_listening(self):
@@ -49,7 +52,7 @@ class Worker(object):
                 self._logger.debug('Sending the asteroids list to the manager')
                 for string in string_ast_list:
                     self.send_asteroids(string)
-                    self._logger.debug('Deleting the message')
+                self._logger.debug('Deleting the message')
                 message.delete()
 
     def process_message(self, job):
@@ -62,7 +65,7 @@ class Worker(object):
         msg_speed = job.speed
         msg_miss = job.miss
 
-        ast_list = self.get_list_of_asteroids(msg_start_date,
+        ast_dict = self.get_list_of_asteroids(msg_start_date,
                                               msg_end_date,
                                               msg_diameter,
                                               msg_speed,
@@ -70,15 +73,13 @@ class Worker(object):
 
         strings_list = []
         # decode to json
-        for day in ast_list:
+        for date, day in ast_dict.items():
             if len(day) is 0:
-                asteroids = None
-                date = None
+                asteroids = []
             else:
                 asteroids = day
-                date = day[0].get_approach_date
             result = messages.DoneJob(local_uuid=job.local_uuid,
-                                      date=job.start_date,
+                                      date=date,
                                       asteroids=asteroids,
                                       worker_id=self._uuid,
                                       total_asteroids=self.asteroids_count)
@@ -97,24 +98,25 @@ class Worker(object):
         get the dates and return an asteroids object from NASA
         :return: json objects representing the asteroids list
         """
-        nasa_api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
+        self._logger.debug('Getting the data from NASA')
         response = requests.get(
             'https://api.nasa.gov/neo/rest/v1/feed?start_date={}&end_date={}&api_key={}'.format(start_date_str,
                                                                                                 end_date_str,
-                                                                                                nasa_api_key)).json()
-        data_per_day_list = [response["near_earth_objects"][i] for i in response["near_earth_objects"].keys()]
+                                                                                                self.nasa_api_key)).json()
+        data_per_day_dict = {i: response["near_earth_objects"][i] for i in response["near_earth_objects"].keys()}
 
         self.asteroids_count = 0  # start counting how many asteroids you got
-        dangerous_asteroids_list = []
-        for day in data_per_day_list:
+        dangerous_asteroids_dict = {}
+        self._logger.debug('Processing the data')
+        for date, day in data_per_day_dict.items():
             # make list of asteroid object
             nasa_asteroids_list = [self._make_asteroid_object(asteroid) for asteroid in day]
             self.asteroids_count += len(nasa_asteroids_list)
             # remove the none dangerous and add the color
             dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if
                                    self._check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss)]
-            dangerous_asteroids_list.append(dangerous_asteroids)
-        return dangerous_asteroids_list
+            dangerous_asteroids_dict[date] = dangerous_asteroids
+        return dangerous_asteroids_dict
 
     @staticmethod
     def _make_asteroid_object(asteroid):
@@ -164,16 +166,16 @@ class Worker(object):
 
 
 # FOR DEBUGGING
-start_date = "2016-11-19"
-end_date = "2016-11-26"
+start_date = "2016-11-11"
+end_date = "2016-11-16"
 api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
 local_id = "worker1"
 worker = Worker()
-data = worker.get_list_of_asteroids(start_date, end_date, local_id, 200, 10, 0.3)
+data = worker.get_list_of_asteroids(start_date, end_date, 200, 10, 0.3)
 json_ast_list = json.dumps(data)
 task = json.loads(json_ast_list)
-start = datetime.datetime.strptime("2016-11-12", '%Y-%m-%d')
-end = datetime.datetime.strptime("2016-11-19", '%Y-%m-%d')
+start = datetime.datetime.strptime("2016-12-10", '%Y-%m-%d')
+end = datetime.datetime.strptime("2016-12-11", '%Y-%m-%d')
 
 # a = Task(None, start, end, None, None, None)
 # a.add_asteroid_list(data, start)

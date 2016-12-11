@@ -5,6 +5,8 @@ import pickle
 import threading
 import os
 
+from collections import defaultdict
+
 import utils
 import utils.clients
 import messages
@@ -61,6 +63,7 @@ class ManagerEmployee(threading.Thread):
         self._workers = workers
         self._worker_lock = workers_lock
         self._tasks = tasks
+        self._workers_statistic = defaultdict(lambda : defaultdict(int))
 
     def run(self):
         """
@@ -110,7 +113,7 @@ class ManagerEmployee(threading.Thread):
                 self._logger.debug('Creating new workers. new_workers: {0}, old_workers {1}'.format(missing_work_force,
                                                                                                     len(self._workers)))
                 with open(self._setup_script_path, 'r') as myfile:
-                    user_data = myfile.read()
+                    user_data = myfile.read().format(os.environ.get('AWS_ACCESS_KEY_ID'), os.environ.get('AWS_SECRET_ACCESS_KEY'))
                 iam_instance_profile = {'Arn': utils.Names.arn}
                 new_workers = self._e2_client.create_instance(image_id='ami-b73b63a0',
                                                               tags=[self._worker_tag],
@@ -140,9 +143,13 @@ class ManagerEmployee(threading.Thread):
                 local_uuid = done_job.local_uuid
                 self._tasks_lock.acquire()
                 try:
+                    self._logger.debug('Got new message from worker')
                     if local_uuid in self._tasks:
+                        self.update_workers_statistics(done_job) # get the data from the worker for the worker statistic
                         relevant_task = self._tasks[local_uuid]
                         relevant_task.add_asteroid_list(asteroid_list=done_job.asteroids, date=done_job.date)
+                        self._logger.debug("Local {} have {} days left to do".format(local_uuid,
+                                                                                     relevant_task.get_how_many_days_left()))
                         if relevant_task.is_done():
                             self._create_summery_file_and_send(relevant_task)
                             del self._tasks[local_uuid]
@@ -220,6 +227,10 @@ class ManagerEmployee(threading.Thread):
             self._sqs_client.send_message(queue=self._manager_to_workers_queue,
                                           body=job_message)
 
+    def update_workers_statistics(self, done_job):
+        self._workers_statistic[done_job.worker_id]["total_asteroids"] += done_job.total_asteroids
+        self._workers_statistic[done_job.worker_id]["num_of_safe"] += done_job.num_of_safe
+        self._workers_statistic[done_job.worker_id]["num_of_dangerous"] += done_job.num_of_dangerous
 
 if __name__ == '__main__':
     manager_instance = Manager()
