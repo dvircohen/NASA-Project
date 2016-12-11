@@ -1,7 +1,7 @@
 {
   "start-date": "2016-11-11",
-  "end-date": "2016-11-13",
-  "speed-threshold": 843,
-  "diameter-threshold": 2323,
-  "miss-threshold": 24234
+  "end-date": "2016-11-16",
+  "speed-threshold": 10,
+  "diameter-threshold": 200,
+  "miss-threshold": 0.3
 }

@@ -2,6 +2,9 @@ import itertools
 import json
 
 import datetime
+import urllib2
+import uuid
+
 import requests
 import pickle
 
@@ -16,20 +19,22 @@ from utils.task import Task
 class Worker(object):
     def __init__(self):
         self._sqs_client = boto3.resource("sqs", region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
-                             aws_secret_access_key="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")
+                                          aws_secret_access_key="9P4ZwRqIQxWFeyNy8AR5X2cjxxBgo8ZmXtJKmcnc")
         # self.queue = _sqs_client.get_queue_by_name(QueueName='worker_queue')
         self._logger = utils.set_logger('worker')
         self._sqs_client = Sqs()
         self.jobs_queue = self._sqs_client.get_queue("jobs")
-        # self.death_queue = self._sqs_client.get_queue("deaths")
         self.asteroids_queue = self._sqs_client.get_queue("asteroids")
+        self.asteroids_count = 0
+        self._uuid = str(uuid.uuid4())
         self.start_listening()
+        pass
 
     def start_listening(self):
         """
         get the messages from the queue and precces them
         """
-        # TODO find a way to kill a worker
+        self._logger.debug('Waiting to get Messages from manager')
         while True:
             # self._check_if_kill_yourself()
             messages_from_manager = self._sqs_client.get_messages(queue=self.jobs_queue,
@@ -39,11 +44,12 @@ class Worker(object):
                 self._logger.debug('Message received from manager')
                 job = Job.decode(message.body)
                 # process the messages and return a json str
-                json_ast_list = self.process_message(job)
+                string_ast_list = self.process_message(job)
                 # send it back to the manager
                 self._logger.debug('Sending the asteroids list to the manager')
-                self.send_asteroids(json_ast_list)
-                self._logger.debug('Deleting the message')
+                for string in string_ast_list:
+                    self.send_asteroids(string)
+                    self._logger.debug('Deleting the message')
                 message.delete()
 
     def process_message(self, job):
@@ -55,19 +61,30 @@ class Worker(object):
         msg_diameter = job.diameter
         msg_speed = job.speed
         msg_miss = job.miss
-        msg_local_uuid = job.local_uuid
 
         ast_list = self.get_list_of_asteroids(msg_start_date,
                                               msg_end_date,
-                                              msg_local_uuid,
                                               msg_diameter,
                                               msg_speed,
                                               msg_miss)
 
+        strings_list = []
         # decode to json
-        result = messages.DoneJob(local_uuid=job.local_uuid, date=job.start_date, asteroids=ast_list)
-        result = pickle.dumps(result)
-        return result
+        for day in ast_list:
+            if len(day) is 0:
+                asteroids = None
+                date = None
+            else:
+                asteroids = day
+                date = day[0].get_approach_date
+            result = messages.DoneJob(local_uuid=job.local_uuid,
+                                      date=job.start_date,
+                                      asteroids=asteroids,
+                                      worker_id=self._uuid,
+                                      total_asteroids=self.asteroids_count)
+            result = pickle.dumps(result)
+            strings_list.append(result)
+        return strings_list
 
     def send_asteroids(self, json_ast_list):
         """
@@ -75,7 +92,7 @@ class Worker(object):
         """
         self._sqs_client.send_message(queue=self.asteroids_queue, body=json_ast_list)
 
-    def get_list_of_asteroids(self, start_date_str, end_date_str, msg_local_uuid, msg_diameter, msg_speed, msg_miss):
+    def get_list_of_asteroids(self, start_date_str, end_date_str, msg_diameter, msg_speed, msg_miss):
         """
         get the dates and return an asteroids object from NASA
         :return: json objects representing the asteroids list
@@ -86,17 +103,18 @@ class Worker(object):
                                                                                                 end_date_str,
                                                                                                 nasa_api_key)).json()
         data_per_day_list = [response["near_earth_objects"][i] for i in response["near_earth_objects"].keys()]
-        asteroids_list = list(itertools.chain.from_iterable(data_per_day_list))
 
-        # make list of asteroid object
-        nasa_asteroids_list = [self._make_asteroid_object(asteroid) for asteroid in asteroids_list]
-
-        # remove the none dangerous and add the color
-        dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if
-                               self._check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss)]
-
-        # add the local id
-        return dangerous_asteroids
+        self.asteroids_count = 0  # start counting how many asteroids you got
+        dangerous_asteroids_list = []
+        for day in data_per_day_list:
+            # make list of asteroid object
+            nasa_asteroids_list = [self._make_asteroid_object(asteroid) for asteroid in day]
+            self.asteroids_count += len(nasa_asteroids_list)
+            # remove the none dangerous and add the color
+            dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if
+                                   self._check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss)]
+            dangerous_asteroids_list.append(dangerous_asteroids)
+        return dangerous_asteroids_list
 
     @staticmethod
     def _make_asteroid_object(asteroid):
@@ -135,7 +153,7 @@ class Worker(object):
                                                  number_of_messages=1)
         self._logger('Message received from the death queue')
         message_body = messages[0]
-        if  messages[0] is not None:
+        if message_body is not None:
             # message received saying you need to kill yourself :(
             self.kil_yourself()
 
@@ -152,7 +170,7 @@ api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
 local_id = "worker1"
 worker = Worker()
 data = worker.get_list_of_asteroids(start_date, end_date, local_id, 200, 10, 0.3)
-json_ast_list = json.dumps(json_ast_list)
+json_ast_list = json.dumps(data)
 task = json.loads(json_ast_list)
 start = datetime.datetime.strptime("2016-11-12", '%Y-%m-%d')
 end = datetime.datetime.strptime("2016-11-19", '%Y-%m-%d')

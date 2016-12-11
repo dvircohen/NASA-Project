@@ -18,7 +18,6 @@ class Task(object):
         self._number_of_workers = max([self._number_of_workers, 1])
         for i in range(delta.days + 1):
             self._days[(start_time + datetime.timedelta(days=i)).strftime('%Y-%m-%d')] = None
-        pass
 
     @property
     def uuid(self):
