@@ -144,7 +144,7 @@ class Local(object):
 
     def _create_html_output(self, summery_file_json):
         asteroids = json.loads(summery_file_json)
-        final_asteroids = []
+        all_asteroids = []
         for day in asteroids.itervalues():
             for asteroid in day:
                 new_asteroid = utils.Asteroid(hazardous=asteroid['hazardous'],
@@ -154,15 +154,22 @@ class Local(object):
                                               velocity=asteroid['velocity'],
                                               miss_distance=asteroid['miss_distance'],
                                               name=asteroid['name'])
-                new_asteroid.set_color(asteroid['color'])
-                final_asteroids.append(new_asteroid)
+                new_asteroid.set_color(asteroid['color'].lower())
+                all_asteroids.append(new_asteroid)
+
+        green_asteroids = [asteroid for asteroid in all_asteroids if asteroid.color == 'green']
+        yellow_asteroids = [asteroid for asteroid in all_asteroids if asteroid.color == 'yellow']
+        red_asteroids = [asteroid for asteroid in all_asteroids if asteroid.color == 'red']
 
         template_path = os.path.join(self._project_path, 'resources/output_template.html')
         with open(template_path, 'rb') as template_file:
             template = Template(template_file.read())
 
         with open(self._output_file_path, 'wb') as o:
-            o.write(template.render({'asteroids': final_asteroids, 'we_gonna_die': 'true'}))
+            o.write(template.render({'green_asteroids': green_asteroids,
+                                     'yellow_asteroids': yellow_asteroids,
+                                     'red_asteroids': red_asteroids,
+                                     'we_gonna_die': 'true'}))
 
     def _upload_input_file(self):
         self._logger.debug('Uploading file. filename: {0}, file path: {1}'.format(self._input_file_s3_name,

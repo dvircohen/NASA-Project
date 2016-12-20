@@ -17,10 +17,6 @@
             text-align: left;
             padding: 8px;
         }
-
-        tr:nth-child(even) {
-            background-color: #dddddd;
-        }
     </style>
 
     <script type="text/javascript">
@@ -30,59 +26,148 @@
         body{
             background-image: url("resources/asteroids.jpg");
             background-size:cover;
+            background-repeat: no-repeat;
+            background-attachment: fixed;
         }
         /* holding everything inside */
         #wrapper{
             margin-right: auto;
             margin-left: auto;
-            width: 60%;
+            width: 75%;
             height: 100vh;
             box-shadow: 8px 0px 5px -5px #000, -8px 0px 5px -5px #000;
 
-            background: -moz-linear-gradient(top,  rgba(255,255,255,1) 0%, rgba(255,255,255,0) 73%, rgba(255,255,255,0) 100%); /* FF3.6+ */
-            background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(255,255,255,1)), color-stop(73%,rgba(255,255,255,0)), color-stop(100%,rgba(255,255,255,0))); /* Chrome,Safari4+ */
-            background: -webkit-linear-gradient(top,  rgba(255,255,255,1) 0%,rgba(255,255,255,0) 73%,rgba(255,255,255,0) 100%); /* Chrome10+,Safari5.1+ */
-            background: -o-linear-gradient(top,  rgba(255,255,255,1) 0%,rgba(255,255,255,0) 73%,rgba(255,255,255,0) 100%); /* Opera 11.10+ */
-            background: -ms-linear-gradient(top,  rgba(255,255,255,1) 0%,rgba(255,255,255,0) 73%,rgba(255,255,255,0) 100%); /* IE10+ */
-            background: linear-gradient(to bottom,  rgba(255,255,255,1) 0%,rgba(255,255,255,0) 73%,rgba(255,255,255,0) 100%); /* W3C */
+            background: -moz-linear-gradient(top,  rgba(255,255,255,1) 0%, rgba(255,255,255,0) 25%, rgba(255,255,255,0) 50%); /* FF3.6+ */
+            background: -webkit-gradient(linear, left top, left bottom, color-stop(0%,rgba(255,255,255,1)), color-stop(25%,rgba(255,255,255,0)), color-stop(50%,rgba(255,255,255,0))); /* Chrome,Safari4+ */
+            background: -webkit-linear-gradient(top,  rgba(255,255,255,1) 0%,rgba(255,255,255,0) 25%,rgba(255,255,255,0) 50%); /* Chrome10+,Safari5.1+ */
+            background: -o-linear-gradient(top,  rgba(255,255,255,1) 0%,rgba(255,255,255,0) 25%,rgba(255,255,255,0) 50%); /* Opera 11.10+ */
+            background: -ms-linear-gradient(top,  rgba(255,255,255,1) 0%,rgba(255,255,255,0) 25%,rgba(255,255,255,0) 50%); /* IE10+ */
+            background: linear-gradient(to bottom,  rgba(255,255,255,1) 0%,rgba(255,255,255,0) 25%,rgba(255,255,255,0) 50%); /* W3C */
             filter: progid:DXImageTransform.Microsoft.gradient( startColorstr='#ffffff', endColorstr='#00ffffff',GradientType=0 ); /* IE6-9 */
+        }
+        .white{
+            background-color: rgb(243, 241, 232);
+            color: black;
+        }
+        .red {
+            background-color: rgba(156, 0, 3, 0.5);
+            color: white;
+        }
+        .yellow {
+            background-color: rgba(156, 156, 9, 0.5);
+            color: white;
+        }
+        .green {
+            background-color: rgba(5, 81, 14, 0.5);
+            color: white;
+        }
+        .black {
+            background-color: rgba(6, 6, 5, 0.5);
+            color: white;
+        }
+        .red:hover {
+            background-color: rgba(156, 0, 3, 1);
+        }
+        .yellow:hover {
+            background-color: rgba(156, 156, 9, 1);
+        }
+        .green:hover {
+            background-color: rgba(5, 81, 14, 1);
+        }
+        .black:hover {
+            background-color: rgba(6, 6, 5, 1);
         }
     </style>
 </head>
 {% endraw %}
 
 <body>
-    <table>
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>Date</th>
-                <th>Relative Velocity</th>
-                <th>Min Diameter</th>
-                <th>Max Diameter</th>
-                <th>Miss Distance</th>
-                <th>Rank</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for asteroid in asteroids %}
-            <tr>
-                <td>{{ asteroid.name }}</td>
-                <td>{{ asteroid.approach_date }}</td>
-                <td>{{ asteroid.velocity }} kmps</td>
-                <td>{{ asteroid.diameter_min }}m</td>
-                <td>{{ asteroid.diameter_max }}m</td>
-                <td>{{ asteroid.miss_distance }} km</td>
-                <td>{{ asteroid.color }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-<script type="text/javascript">
-    if ({{ we_gonna_die }}) {
-        new Audio(audioData).play();
-        document.write('<h1>WE\'RE GONNA DIE</h1>')
-    }
-</script>
+    <div id="wrapper">
+        <table>
+            <thead>
+                <tr class="white">
+                    <th>Name</th>
+                    <th>Date</th>
+                    <th>Relative Velocity</th>
+                    <th>Min Diameter</th>
+                    <th>Max Diameter</th>
+                    <th>Miss Distance</th>
+                    <th>Rank</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asteroid in green_asteroids %}
+                <tr class="{{ asteroid.color }}">
+                    <td>{{ asteroid.name }}</td>
+                    <td>{{ asteroid.approach_date }}</td>
+                    <td>{{ asteroid.velocity }} kmps</td>
+                    <td>{{ asteroid.diameter_min }}m</td>
+                    <td>{{ asteroid.diameter_max }}m</td>
+                    <td>{{ asteroid.miss_distance }} km</td>
+                    <td>{{ asteroid.color }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <br><br><br><br>
+        <table>
+            <thead>
+                <tr class="white">
+                    <th>Name</th>
+                    <th>Date</th>
+                    <th>Relative Velocity</th>
+                    <th>Min Diameter</th>
+                    <th>Max Diameter</th>
+                    <th>Miss Distance</th>
+                    <th>Rank</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asteroid in yellow_asteroids %}
+                <tr class="{{ asteroid.color }}">
+                    <td>{{ asteroid.name }}</td>
+                    <td>{{ asteroid.approach_date }}</td>
+                    <td>{{ asteroid.velocity }} kmps</td>
+                    <td>{{ asteroid.diameter_min }}m</td>
+                    <td>{{ asteroid.diameter_max }}m</td>
+                    <td>{{ asteroid.miss_distance }} km</td>
+                    <td>{{ asteroid.color }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <br><br><br><br>
+        <table>
+            <thead>
+                <tr class="white">
+                    <th>Name</th>
+                    <th>Date</th>
+                    <th>Relative Velocity</th>
+                    <th>Min Diameter</th>
+                    <th>Max Diameter</th>
+                    <th>Miss Distance</th>
+                    <th>Rank</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for asteroid in red_asteroids %}
+                <tr class="{{ asteroid.color }}">
+                    <td>{{ asteroid.name }}</td>
+                    <td>{{ asteroid.approach_date }}</td>
+                    <td>{{ asteroid.velocity }} kmps</td>
+                    <td>{{ asteroid.diameter_min }}m</td>
+                    <td>{{ asteroid.diameter_max }}m</td>
+                    <td>{{ asteroid.miss_distance }} km</td>
+                    <td>{{ asteroid.color }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    <script type="text/javascript">
+        if ({{ we_gonna_die }}) {
+            new Audio(audioData).play();
+        }
+    </script>
+</div>
 </body>
 </html>
