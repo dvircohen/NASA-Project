@@ -4,7 +4,7 @@ Expect this arguments:
 -i with the path of the input file
 -o with the path of the output file
 -n the n number
--d the d number
+-d the d number (days)
 -t (optional) terminate the manager when you are done
 
 The input file should look like this (json file):
@@ -18,27 +18,23 @@ The input file should look like this (json file):
 }
 ```
 
-n and d dictates the number of workers that will be created for the task:
-    Let delta be the number of days in the tasks.
-    Number of workers = delta / n*d
+The parameters n and d dictates the number of workers that will be created for the task:
+Let delta be the number of days in the tasks.
+`Number of workers = delta / n*d`
 
-The local will upload the project code and input file to private S3 bucket, it will send an sqs message with the input file key (in s3).
+The local will upload the project code and input file to a private S3 bucket, it will send an sqs message with the input file key (in s3).
 It will then bring up a Manager instance in AWS (unless one is not already up) and will wait for answer on a queue.
 Once it gets the answer it will download the output file, parse it to html and save.
 
 ## Manager:
 Runs 2 threads, each with one flow (queue names are not real):
-- Flow 1 (locals) : loop: read messages from local_to_manager queue -> download input files -> create task for each ->
--> create workers if needed -> create jobs for the task -> put jobs in manager_to_workers queue.
-
-- Flow 2 (workers): loop: read messages from workers_to_manager queue -> update the task object in the manager state ->
-if the task is done create a summery file, upload it to s3 and send to manager_to_local queue + check if we need to kill some
-workers.
+- Flow 1 (locals) : loop: read messages from local_to_manager queue -> download input files -> create task for each -> create workers if needed -> create jobs for the task -> put jobs in manager_to_workers queue.
+- Flow 2 (workers): loop: read messages from workers_to_manager queue -> update the task object in the manager state -> if the task is done create a summery file, upload it to s3 and send to manager_to_local queue + check if we need to kill some workers.
 
 ### How terminate works:
-"locals" thread get a message from input file with terminate order:
-    It notify the "workers" thread.
-    It handle the input file task (create the jobs for the workers) and then exit.
+Once "locals" thread get a message from input file with terminate order:
+- It notify the "workers" thread.
+- It handle the input file task (create the jobs for the workers) and then exit.
 
 When the "workers" thread is notified about terminate it keep working as usual, but once all the tasks are finished it upload the statistics of the workers to S3 and quit.
 
@@ -68,7 +64,9 @@ run the core/local.py file with the following parameter:
 -o with the path of the output file
 -n the n number
 -d the d number
--t (optional) terminate the manager when you are done
+-t (optional flag) terminate the manager when you are done
+
+You may run `-h` to get a detailed information of the parameters
 
 The python packages in the requirements.txt file should be installed on the local machine (```run pip install -r requirements.txt```)
 
