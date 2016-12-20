@@ -136,16 +136,13 @@ class Worker(object):
     @staticmethod
     def _check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss):
         if asteroid.get_hazardous():
-            if asteroid.get_velocity() < msg_speed:
+            if asteroid.get_velocity() > msg_speed:
                 asteroid.set_color("Green")
-            else:
-                if asteroid.get_diameter_max() < msg_diameter:
+                if asteroid.get_diameter_max() > msg_diameter:
                     asteroid.set_color("Yellow")
-                else:
-                    if asteroid.get_miss_distance() < msg_miss:
+                    if asteroid.get_miss_distance() > msg_miss:
                         asteroid.set_color("Red")
-
-            return True
+                return True
         else:
             return False
 
@@ -165,20 +162,5 @@ class Worker(object):
         # TODO suicide
 
 
-# FOR DEBUGGING
-start_date = "2016-11-11"
-end_date = "2016-11-16"
-api_key = "wPGgYuyy7uuIsdsydcMMTeaTV2Td4GpJKmAXVZzr"
-local_id = "worker1"
-worker = Worker()
-data = worker.get_list_of_asteroids(start_date, end_date, 200, 10, 0.3)
-json_ast_list = json.dumps(data)
-task = json.loads(json_ast_list)
-start = datetime.datetime.strptime("2016-12-10", '%Y-%m-%d')
-end = datetime.datetime.strptime("2016-12-11", '%Y-%m-%d')
-
-# a = Task(None, start, end, None, None, None)
-# a.add_asteroid_list(data, start)
-# json1 = a.make_json()
-# ast1 = make_asteroid_from_json(json1)
-pass
+if __name__ == '__main__':
+    worker_instance = Worker()
