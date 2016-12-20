@@ -267,6 +267,12 @@ class ManagerEmployee(threading.Thread):
     def _worker_terminate_if_needed(self):
         if self._terminate and len(self._tasks) == 0:
 
+            # Upload workers statistic file
+            worker_stat = StringIO.StringIO()
+            worker_stat.write(json.dumps(self._workers_statistic, indent=4))
+            worker_stat.seek(0)
+            self._s3_client.upload_object_as_file(self._project_bucket, 'workers_statistic.json', worker_stat)
+
             # No more tasks and got terminate flag, tell local thread to terminate and exit
             self._manager.flag_local_terminate()
             self._logger.debug('No more tasks and got terminate order, exiting')

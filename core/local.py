@@ -54,7 +54,7 @@ class Local(object):
         self._ensure_sqs_queues_exist()
         self._ensure_bucket_exist()
         self._upload_files_and_job()
-        self._ensure_manager_is_up()
+        # self._ensure_manager_is_up()
         self._wait_on_summery_file_and_proccess()
 
     def _ensure_manager_is_up(self):
@@ -149,7 +149,7 @@ class Local(object):
             for asteroid in day:
                 new_asteroid = utils.Asteroid(hazardous=asteroid['hazardous'],
                                               diameter_max=asteroid['diameter_max'],
-                                              diameter_min=asteroid['diameter_max'],
+                                              diameter_min=asteroid['diameter_min'],
                                               approach_date=asteroid['approach_date'],
                                               velocity=asteroid['velocity'],
                                               miss_distance=asteroid['miss_distance'],
