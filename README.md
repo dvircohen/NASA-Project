@@ -15,7 +15,8 @@ The input file should look like this (json file):
   "speed-threshold": 10,
   "diameter-threshold": 200,
   "miss-threshold": 0.3
-}```
+}
+```
 
 n and d dicteds the number of workers that will be created for the task:
     Let delta be the number of days in the tasks.
@@ -77,19 +78,22 @@ for example:
 ## Test run:
 We used d=2, n=10, input file:
 
-```{
+```
+{
   "start-date": "2016-10-30",
   "end-date": "2017-01-27",
   "speed-threshold": 10,
   "diameter-threshold": 200,
   "miss-threshold": 0.3
-}```
+}
+```
 
 Full run took the program 2:34 minutes to run.
 
 The manager created 4 workers, their statistics:
 
-```{
+```
+{
     "ae467552-0c98-45a9-aff9-2dffefe51e44": {
         "num_of_dangerous": 31, 
         "total_asteroids": 218, 
@@ -110,7 +114,8 @@ The manager created 4 workers, their statistics:
         "total_asteroids": 125, 
         "num_of_safe": 111
     }
-}```
+}
+```
 
 Dvir Cohen - 304903347
 Aviv Ben Haim - 305091787
