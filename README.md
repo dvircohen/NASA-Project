@@ -55,10 +55,25 @@ Wait for messages in the manager_to_workers queue. On each message it make a NAS
 - EC2:
 	All the applications run ami-b73b63a0 (us-east-1)
 
+## Security
+- The amazon aws codes don't appear anywhere in the code, the local app
+pulls them from the enviorment varible before appanding them at runtime
+into the manager_setup script. The script export those codes into the manager
+instance.
+Same idea used when the manager bring up workers.
+- S3 bucket is a private one.
+
+## Scalability
+- Most of the manager (which is the bottlenack) is cpu bound and non-blocking.
+- The only blocking parts in the manager is sqs and s3 operations. Boto 3 does
+not support non-blocking interface here, so in order to deal with those blocking part
+we created the 2 flow design, each handles by a different thread.
+This allow the manager to handle both local messages and worker messages at the same time.
+- The inner state of the manager is handled in a thread safe way, so in the need arises
+it is possible to run more than 1 thread on each flow.
 
 
-
-## How to run the project
+# How to run the project
 run the core/local.py file with the following parameter:
 -i with the path of the input file
 -o with the path of the output file
