@@ -69,10 +69,10 @@ run the core/local.py file with the following parameter:
 You may run `-h` to get a detailed information of the parameters
 
 The python packages in the requirements.txt file should be installed on the local machine, run:
-`pip install -r requirements.txt`
+```pip install -r requirements.txt```
 
 for example:
-`-i input_file.json -o output_file.html -n 10 -d 2 -t`
+```-i input_file.json -o output_file.html -n 10 -d 2 -t```
 
 ## Test run:
 We used d=2, n=10, input file:
