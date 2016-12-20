@@ -18,7 +18,7 @@ The input file should look like this (json file):
 }
 ```
 
-n and d dicteds the number of workers that will be created for the task:
+n and d dictates the number of workers that will be created for the task:
     Let delta be the number of days in the tasks.
     Number of workers = delta / n*d
 
@@ -27,7 +27,7 @@ It will then bring up a Manager instance in AWS (unless one is not already up) a
 Once it gets the answer it will download the output file, parse it to html and save.
 
 ## Manager:
-Runs 2 theards, each with one flow (queue names are not real):
+Runs 2 threads, each with one flow (queue names are not real):
 - Flow 1 (locals) : loop: read messages from local_to_manager queue -> download input files -> create task for each ->
 -> create workers if needed -> create jobs for the task -> put jobs in manager_to_workers queue.
 
@@ -40,21 +40,21 @@ workers.
     It notify the "workers" thread.
     It handle the input file task (create the jobs for the workers) and then exit.
 
-When the "workers" thread is notified about terminate it keep working as usaual, but once all the tasks are finished it upload the statisicts of the workers to S3 and quit.
+When the "workers" thread is notified about terminate it keep working as usual, but once all the tasks are finished it upload the statistics of the workers to S3 and quit.
 
 Note that once the locals thread gets the terminate order no more tasks will be added to the worker thread.
 
-The task is splitted to 1-day jobs, and sent like this to the manager_to_workers sqs queue. This is done to ensure maxium parallarlirty.
+The task is split  to 1-day jobs, and sent like this to the manager_to_workers sqs queue. This is done to ensure maximum parallelity.
 
 ## Worker:
 Wait for messages in the manager_to_workers queue. On each message it make a NASA query, parse the result the according to the parameters in the message and return the answers to the manager.
 
 
-## Reasurces: 
+## Resources:
 - S3:
 	All the application use the same S3 bucket.
 - SQS:
-	Permenet queues: local_to_manager, manager_to_workers, workers_to_manager.
+	Permanent queues: local_to_manager, manager_to_workers, workers_to_manager.
 	Temporary queues: manager_to_local
 - EC2:
 	All the applications run ami-b73b63a0 (us-east-1)
