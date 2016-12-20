@@ -18,9 +18,7 @@ from utils.task import Task
 
 class Worker(object):
     def __init__(self):
-        self._sqs_client = boto3.resource("sqs", region_name='us-east-1', aws_access_key_id="AKIAJRJLQHBZH3PC7QUQ",
-                                          aws_secret_access_key="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")
-        # self.queue = _sqs_client.get_queue_by_name(QueueName='worker_queue')
+        self._sqs_client = boto3.resource("sqs", region_name='us-east-1')
         self._logger = utils.set_logger('worker')
         self._sqs_client = Sqs()
         self.jobs_queue = self._sqs_client.get_queue("jobs")
@@ -46,8 +44,10 @@ class Worker(object):
             for message in messages_from_manager:
                 self._logger.debug('Message received from manager')
                 job = Job.decode(message.body)
+
                 # process the messages and return a json str
                 string_ast_list = self.process_message(job)
+
                 # send it back to the manager
                 self._logger.debug('Sending the asteroids list to the manager')
                 for string in string_ast_list:
@@ -72,6 +72,7 @@ class Worker(object):
                                               msg_miss)
 
         strings_list = []
+
         # decode to json
         for date, day in ast_dict.items():
             if len(day) is 0:
@@ -109,9 +110,11 @@ class Worker(object):
         dangerous_asteroids_dict = {}
         self._logger.debug('Processing the data')
         for date, day in data_per_day_dict.items():
+
             # make list of asteroid object
             nasa_asteroids_list = [self._make_asteroid_object(asteroid) for asteroid in day]
             self.asteroids_count += len(nasa_asteroids_list)
+
             # remove the none dangerous and add the color
             dangerous_asteroids = [asteroid for asteroid in nasa_asteroids_list if
                                    self._check_if_dangerous(asteroid, msg_diameter, msg_speed, msg_miss)]
@@ -138,7 +141,7 @@ class Worker(object):
         if asteroid.get_hazardous():
             if asteroid.get_velocity() > msg_speed:
                 asteroid.set_color("Green")
-                if asteroid.get_diameter_max() > msg_diameter:
+                if asteroid.get_diameter_min() > msg_diameter:
                     asteroid.set_color("Yellow")
                     if asteroid.get_miss_distance() > msg_miss:
                         asteroid.set_color("Red")
@@ -153,6 +156,7 @@ class Worker(object):
         self._logger('Message received from the death queue')
         message_body = messages[0]
         if message_body is not None:
+
             # message received saying you need to kill yourself :(
             self.kil_yourself()
 

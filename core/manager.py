@@ -171,7 +171,7 @@ class ManagerEmployee(threading.Thread):
                 local_uuid = done_job.local_uuid
                 self._tasks_lock.acquire()
                 try:
-                    self._logger.debug('Got new message from worker')
+                    self._logger.debug('Got new message from worker. Worker_id: {0}'.format(done_job.worker_id))
                     if local_uuid in self._tasks:
                         self.update_workers_statistics(done_job) # get the data from the worker for the worker statistic
                         relevant_task = self._tasks[local_uuid]
@@ -242,6 +242,7 @@ class ManagerEmployee(threading.Thread):
         local_task = messages.Task.decode(body)
         if local_task.terminate:
             self._manager.flag_worker_terminate()
+            self._manager.flag_local_terminate()
         self._logger.debug('Manager handling local message. local_uuid: {0}'.format(local_task.local_uuid))
         return self._download_and_parse_input_file(local_task)
 
@@ -273,8 +274,7 @@ class ManagerEmployee(threading.Thread):
             worker_stat.seek(0)
             self._s3_client.upload_object_as_file(self._project_bucket, 'workers_statistic.json', worker_stat)
 
-            # No more tasks and got terminate flag, tell local thread to terminate and exit
-            self._manager.flag_local_terminate()
+            # No more tasks and got terminate flag
             self._logger.debug('No more tasks and got terminate order, exiting')
             exit(0)
 

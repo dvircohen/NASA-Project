@@ -54,7 +54,7 @@ class Local(object):
         self._ensure_sqs_queues_exist()
         self._ensure_bucket_exist()
         self._upload_files_and_job()
-        # self._ensure_manager_is_up()
+        self._ensure_manager_is_up()
         self._wait_on_summery_file_and_proccess()
 
     def _ensure_manager_is_up(self):
@@ -158,8 +158,13 @@ class Local(object):
                 all_asteroids.append(new_asteroid)
 
         green_asteroids = [asteroid for asteroid in all_asteroids if asteroid.color == 'green']
+        green_asteroids.sort(key=lambda ast: ast.miss_distance)
+
         yellow_asteroids = [asteroid for asteroid in all_asteroids if asteroid.color == 'yellow']
+        yellow_asteroids.sort(key=lambda ast: ast.miss_distance)
+
         red_asteroids = [asteroid for asteroid in all_asteroids if asteroid.color == 'red']
+        red_asteroids.sort(key=lambda ast: ast.miss_distance)
 
         template_path = os.path.join(self._project_path, 'resources/output_template.html')
         with open(template_path, 'rb') as template_file:
