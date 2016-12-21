@@ -72,6 +72,19 @@ This allow the manager to handle both local messages and worker messages at the 
 - The inner state of the manager is handled in a thread safe way, so in the need arises
 it is possible to run more than 1 thread on each flow.
 
+## Robustness
+There are 2 points of failure that we need to take care of:
+- A worker dies while he handles a message (job) he got from the manager
+before he finished the job. In such a case the message will not be deleted from
+the queue, messages are deleted by the worker only after he puts the result in
+the result queue. That means that the job message will be picked up by another
+worker after the visibility time of the message expire.
+- The manager dies while he handles a local task. Solution: When the local
+waits for the result from the manager it also checks periodically that the manager 
+is still up. In a case where the manager died while handleing some local A
+task, local A will detect that a manager is no longer up, will bring a new one
+and send the task to the local_to_manager queue again.
+
 
 # How to run the project
 run the core/local.py file with the following parameter:
@@ -131,6 +144,10 @@ The manager created 4 workers, their statistics:
 }
 ```
 
+The system was tested on more than one local at a time and outputted correct 
+results.
+
+Writers: 
 Dvir Cohen - 304903347
 Aviv Ben Haim - 305091787
 
