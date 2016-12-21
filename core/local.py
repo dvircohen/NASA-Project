@@ -15,7 +15,6 @@ import messages
 class Local(object):
 
     def __init__(self, args):
-        # TODO: zip code here
         self._args = args
         self._logger = utils.set_logger('local')
         self._code = None
@@ -108,7 +107,9 @@ class Local(object):
         self._logger.debug('Uploading files')
         self._upload_input_file()
         self._zip_and_upload_code()
+        self._send_task_to_manager()
 
+    def _send_task_to_manager(self):
         self._logger.debug('Sending job to manager via sqs')
         task_message = messages.Task(local_uuid=self._uuid,
                                      input_file_s3_path=self._input_file_s3_name,
@@ -128,6 +129,13 @@ class Local(object):
         self._logger.debug('Waiting on message from manager')
         manager_messages = []
         while not manager_messages:
+            self._logger.debug('Ensuring manager is still alive')
+
+            manager = self._ec2_client.get_instance_with_tag(self._manager_tag)
+            if not manager:
+                self._ensure_manager_is_up()
+                self._send_task_to_manager()
+
             manager_messages = self._sqs_client.get_messages(queue=self._queue_from_manager,
                                                              timeout=20,
                                                              number_of_messages=1)

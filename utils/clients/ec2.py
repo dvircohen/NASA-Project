@@ -25,7 +25,7 @@ class Ec2(object):
 
         # iterate over all alive instances
         for instance in self._ec2.instances.all():
-            if instance.state['Name'] == 'running' and instance.tags is not None:
+            if (instance.state['Name'] == 'running' or instance.state['Name'] == 'pending') and instance.tags is not None:
                 for tag in instance.tags:
                     if tag == wanted_tag:
                         instances.append(instance)

@@ -39,17 +39,27 @@ class Manager(object):
 
     def run(self):
 
-        # Start new Threads
-        self._local_thread.start()
-        self._worker_thread.start()
+        try:
+            # Start new Threads
+            self._local_thread.start()
+            self._worker_thread.start()
 
-        # Wait on both thread
-        self._worker_thread.join()
-        self._logger.debug('Worker thread went to sleep')
+            # Wait on both thread
+            self._local_thread.join()
+            self._logger.debug('Local thread went to sleep')
 
-        self._local_thread.join()
-        self._logger.debug('Both thread went to sleep, commencing shutdown')
+            self._worker_thread.join()
+            self._logger.debug('Both thread went to sleep, commencing shutdown')
 
+            self.shutdown_machine()
+
+        except Exception as e:
+            self._logger.debug('Main thread exception: {0}'.format(e.message))
+            self.shutdown_machine()
+
+    def shutdown_machine(self):
+
+        self._logger.debug('Shunting down machine')
         if 'ROY_IS_THE_BEST' in os.environ:
             subprocess.call('/bin/bash -c "shutdown -h now"', shell=True)
 
@@ -97,12 +107,18 @@ class ManagerEmployee(threading.Thread):
         :return:
         """
 
-        if self._role == 'local':
-            self._logger.debug('Manager of type local starting')
-            self._handle_local_requests()
-        else:
-            self._logger.debug('Manager of type job starting')
-            self._handle_worker_done_jobs()
+        try:
+            if self._role == 'local':
+                self._logger.debug('Manager of type local starting')
+                self._handle_local_requests()
+            else:
+                self._logger.debug('Manager of type job starting')
+                self._handle_worker_done_jobs()
+        except Exception as e:
+
+            # If anything goes bad, shutdown the machine
+            self._logger.debug('Sub manager exception: {0}'.format(e.message))
+            self._manager.shutdown_machine()
 
     def flag_terminate(self):
         self._terminate = True
@@ -135,7 +151,7 @@ class ManagerEmployee(threading.Thread):
         try:
             number_of_needed_workers = task.number_of_workers
             missing_work_force = number_of_needed_workers - len(self._workers)
-            if missing_work_force != 0:
+            if missing_work_force > 0:
 
                 self._logger.debug('Creating new workers. new_workers: {0}, old_workers {1}'.format(missing_work_force,
                                                                                                     len(self._workers)))

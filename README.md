@@ -81,9 +81,17 @@ the result queue. That means that the job message will be picked up by another
 worker after the visibility time of the message expire.
 - The manager dies while he handles a local task. Solution: When the local
 waits for the result from the manager it also checks periodically that the manager 
-is still up. In a case where the manager died while handleing some local A
+is still up. In a case where the manager died while handling some local A
 task, local A will detect that a manager is no longer up, will bring a new one
 and send the task to the local_to_manager queue again.
+
+## NASA Limitations
+While the system is all well and good (and distributed), the nasa api limit us
+to just 1K requests per hour.
+
+This brings up the trade-off between sending 1-day jobs to the workers in order
+to maximize parallelity or using 7-days jobs to maximize the number of days
+we can cover in one hour (The maximum nasa api request is a 7 day request).
 
 
 # How to run the project
