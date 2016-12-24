@@ -1,11 +1,11 @@
 # How the project works:
 ## Local:
 Expect this arguments:
--i with the path of the input file
--o with the path of the output file
--n the n number
--d the d number (days)
--t (optional) terminate the manager when you are done
+* -i with the path of the input file
+* -o with the path of the output file
+* -n the n number (worker to periods number)
+* -d the d number (days)
+* -t (optional) terminate the manager when you are done
 
 The input file should look like this (json file):
 ```
@@ -18,21 +18,22 @@ The input file should look like this (json file):
 }
 ```
 
-The parameters n and d dictates the number of workers that will be created for the task:
-Let delta be the number of days in the tasks.
+The parameters n and d dictates the number of workers that will be created for the task:  
+Let delta be the number of days in the tasks.  
 `Number of workers = delta / n*d`
 
-The local will upload the project code and input file to a private S3 bucket, it will send an sqs message with the input file key (in s3).
-It will then bring up a Manager instance in AWS (unless one is not already up) and will wait for answer on a queue.
+The local will upload the project code and input file to a private S3 bucket, it will send an sqs message with the input file key (in s3) to the
+locals_to_manager.  
+It will then bring up a Manager instance in AWS (unless one is already up) and will wait for answer on a queue.  
 Once it gets the answer it will download the output file, parse it to html and save.
 
 ## Manager:
 Runs 2 threads, each with one flow (queue names are not real):
 - Flow 1 (locals) : loop: read messages from local_to_manager queue -> download input files -> create task for each -> create workers if needed -> create jobs for the task -> put jobs in manager_to_workers queue.
-- Flow 2 (workers): loop: read messages from workers_to_manager queue -> update the task object in the manager state -> if the task is done create a summery file, upload it to s3 and send to manager_to_local queue + check if we need to kill some workers.
+- Flow 2 (workers): loop: read messages from workers_to_manager queue -> update the task object in the manager state -> if the task is done create a summery file, upload it to s3 and send to manager_to_local queue + check if we need to kill the workers.
 
 ### How terminate works:
-Once "locals" thread get a message from input file with terminate order:
+Once "locals" thread get a message from a local with a terminate order inside the input file:
 - It notify the "workers" thread.
 - It handle the input file task (create the jobs for the workers) and then exit.
 
@@ -40,48 +41,50 @@ When the "workers" thread is notified about terminate it keep working as usual, 
 
 Note that once the locals thread gets the terminate order no more tasks will be added to the worker thread.
 
-The task is split  to 1-day jobs, and sent like this to the manager_to_workers sqs queue. This is done to ensure maximum parallelity.
+The task is split to 1-day jobs, and sent like this to the manager_to_workers sqs queue. This is done to ensure maximum parallelity.
 
 ## Worker:
-Wait for messages in the manager_to_workers queue. On each message it make a NASA query, parse the result the according to the parameters in the message and return the answers to the manager.
+Wait for messages in the manager_to_workers queue.  
+On each message it makes a NASA query, parse the result the according to the parameters in the message and return the answers to the manager.
 
 
 ## Resources:
 - S3:
 	All the application use the same S3 bucket.
-- SQS:
-	Permanent queues: local_to_manager, manager_to_workers, workers_to_manager.
-	Temporary queues: manager_to_local
+- SQS:  
+	- Permanent queues: local_to_manager, manager_to_workers, workers_to_manager.  
+	- Temporary queues: manager_to_local
 - EC2:
-	All the applications run ami-b73b63a0 (us-east-1)
+	All the applications run on t2.nano with ami-b73b63a0 image (us-east-1).
 
 ## Security
-- The amazon aws codes don't appear anywhere in the code, the local app
-pulls them from the enviorment varible before appanding them at runtime
-into the manager_setup script. The script export those codes into the manager
-instance.
+- The amazon aws codes doesn't appear anywhere in the code, the local app
+pulls them from the environment variables before appending them at runtime
+into the manager_setup script (aws UserData).  
+The script exports those codes into the manager instance.  
 Same idea used when the manager bring up workers.
 - S3 bucket is a private one.
 
 ## Scalability
 - Most of the manager (which is the bottlenack) is cpu bound and non-blocking.
 - The only blocking parts in the manager is sqs and s3 operations. Boto 3 does
-not support non-blocking interface here, so in order to deal with those blocking part
-we created the 2 flow design, each handles by a different thread.
+not support non-blocking interface here, so in order to deal with those blocking parts
+we created the 2 flow design, each handled by a different thread.
 This allow the manager to handle both local messages and worker messages at the same time.
-- The inner state of the manager is handled in a thread safe way, so in the need arises
+- The inner state of the manager is handled in a thread safe way, so if the need arises
 it is possible to run more than 1 thread on each flow.
 
 ## Robustness
 There are 2 points of failure that we need to take care of:
-- A worker dies while he handles a message (job) he got from the manager
+- A worker dies while it handles a message (job) he got from the manager
 before he finished the job. In such a case the message will not be deleted from
-the queue, messages are deleted by the worker only after he puts the result in
+the queue. Messages are deleted by the worker only after he puts the result in
 the result queue. That means that the job message will be picked up by another
 worker after the visibility time of the message expire.
 - The manager dies while he handles a local task. Solution: When the local
 waits for the result from the manager it also checks periodically that the manager 
-is still up. In a case where the manager died while handling some local A
+is still up.  
+In a case where the manager died while handling some local A
 task, local A will detect that a manager is no longer up, will bring a new one
 and send the task to the local_to_manager queue again.
 
@@ -96,18 +99,24 @@ we can cover in one hour (The maximum nasa api request is a 7 day request).
 
 # How to run the project
 run the core/local.py file with the following parameter:
--i with the path of the input file
--o with the path of the output file
--n the n number
--d the d number
--t (optional flag) terminate the manager when you are done
+* -i with the path of the input file
+* -o with the path of the output file
+* -n the n number (worker to periods number)
+* -d the d number
+* -t (optional flag) terminate the manager when you are done
 
-You may run `-h` to get a detailed information of the parameters
+You may run `-h` to get a detailed information of the parameters.
 
-The python packages in the requirements.txt file should be installed on the local machine, run:
+The python packages in the requirements.txt file should be installed on the local machine, run:  
 ```pip install -r requirements.txt```
 
-for example:
+You need to have 2 environments variables on your machine:
+```
+AWS_ACCESS_KEY_ID - your aws key id
+AWS_SECRET_ACCESS_KEY - your secret aws key
+```
+
+For example:
 ```-i input_file.json -o output_file.html -n 10 -d 2 -t```
 
 ## Test run:
@@ -156,7 +165,7 @@ The system was tested on more than one local at a time and outputted correct
 results.
 
 Writers: 
-Dvir Cohen - 304903347
+Dvir Cohen - 304903347  
 Aviv Ben Haim - 305091787
 
 
