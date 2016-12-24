@@ -163,7 +163,6 @@ class Worker(object):
     def kil_yourself(self):
         self._logger('Goodbye cruel world  :(')
         quit()
-        # TODO suicide
 
 
 if __name__ == '__main__':
