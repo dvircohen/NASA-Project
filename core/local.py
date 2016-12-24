@@ -47,7 +47,6 @@ class Local(object):
         Used to start the task
         :return:
         """
-        # TODO: make sure manager is up
         # run the task given in constructor
         # create the html file and finish
         self._ensure_sqs_queues_exist()
@@ -55,6 +54,7 @@ class Local(object):
         self._upload_files_and_job()
         self._ensure_manager_is_up()
         self._wait_on_summery_file_and_proccess()
+        self._delete_queue_from_manager()
 
     def _ensure_manager_is_up(self):
         """
@@ -195,8 +195,11 @@ class Local(object):
         self._logger.debug('Ensuring bucket exist. bucket name: {0}'.format(self._project_bucket_name))
         self._project_bucket = self._s3_client.create_or_get_bucket(self._project_bucket_name)
 
+    def _delete_queue_from_manager(self):
+        self._sqs_client.delete_quque(self._queue_from_manager)
+
     def _zip_and_upload_code(self):
-        self._logger.debug('Zipping project code in prevention to send')
+        self._logger.debug('Zipping project code in preparation to send')
         archive_dir = os.path.abspath(os.path.join(self._project_path, '..'))
         place = os.path.join(self._project_path, 'full_code')
         shutil.make_archive(base_name=place,

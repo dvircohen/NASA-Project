@@ -13,7 +13,7 @@ class Task(object):
         start_time = datetime.datetime.strptime(start_time, '%Y-%m-%d')
         end_time = datetime.datetime.strptime(end_time, '%Y-%m-%d')
         delta = end_time - start_time
-        periods = delta.days / self._n_days
+        periods = max([delta.days / self._n_days, 1])
         self._number_of_workers = periods / n
         self._number_of_workers = max([self._number_of_workers, 1])
         for i in range(delta.days + 1):
