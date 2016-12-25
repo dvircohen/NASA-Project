@@ -98,6 +98,28 @@ we can cover in one hour (The maximum nasa api request is a 7 day request).
 
 
 # How to run the project
+## Preparations 
+Unzip the project.  
+The following script will:
+- Create a virtual environment for the project.
+- Activate the virtual environment.
+- Install the required packages.
+- Add the project path into PYTHONPATH. 
+```
+cd into NASA_Project dir
+virtualenv ../venv
+source ../venv/bin/activate
+pip install -r requirements.txt
+export PYTHONPATH=$PYTHONPATH:$(pwd)
+```  
+
+You need to have 2 environments variables on your machine:
+```
+AWS_ACCESS_KEY_ID - your aws key id
+AWS_SECRET_ACCESS_KEY - your secret aws key
+```
+
+## Running
 run the core/local.py file with the following parameter:
 * -i with the path of the input file
 * -o with the path of the output file
@@ -107,14 +129,6 @@ run the core/local.py file with the following parameter:
 
 You may run `-h` to get a detailed information of the parameters.
 
-The python packages in the requirements.txt file should be installed on the local machine, run:  
-```pip install -r requirements.txt```
-
-You need to have 2 environments variables on your machine:
-```
-AWS_ACCESS_KEY_ID - your aws key id
-AWS_SECRET_ACCESS_KEY - your secret aws key
-```
 
 For example:
 ```-i input_file.json -o output_file.html -n 10 -d 2 -t```
