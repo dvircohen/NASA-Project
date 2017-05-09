@@ -182,4 +182,7 @@ Writers:
 Dvir Cohen - 304903347  
 Aviv Ben Haim - 305091787
 
+Note: The AWS key that can be found in older commits does no longer exits  
+(since this repo became public), save your time trying to use it :)
+
 
