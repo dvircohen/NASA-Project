@@ -179,8 +179,8 @@ The system was tested on more than one local at a time and outputted correct
 results.
 
 Writers: 
-Dvir Cohen - 304903347  
-Aviv Ben Haim - 305091787
+Dvir Cohen
+Aviv Ben Haim
 
 Note: The AWS key that can be found in older commits does no longer exits  
 (since this repo became public), save your time trying to use it :)
