@@ -1,3 +1,11 @@
+# Introduction
+This is a repository of a university assignment (BGU) in Distributed System Programing for Big Data course.  
+The project involves using AWS EC2 machines to find dangerous asteroids according to NASA database.
+This is done by having a manager (EC2) machine that receives "jobs" (time span and filter parameters from local application that reside on user machines.
+The manager split to jobs to small tasks and create workers (EC2) machines in order to process this tasks.
+
+
+
 # How the project works:
 ## Local:
 Expect this arguments:
